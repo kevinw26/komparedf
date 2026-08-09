@@ -1,0 +1,27 @@
+Package: df.kompare
+Type: Package
+Title: df.kompare
+Version: 0.1.0
+Authors@R: c(
+    person(
+      "Kevin", "Wong",
+      email = "kevinw26@gmail.com",
+      role = c("aut", "cre")
+    )
+  )
+Description: Compares two data frames' values
+License: MIT + file LICENSE
+Encoding: UTF-8
+LazyData: true
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 8.0.0
+Imports: 
+    dplyr,
+    glue,
+    purrr,
+    stringr,
+    tibble,
+    tidyr
+Suggests: 
+    testthat (>= 3.0.0)
+Config/testthat/edition: 3

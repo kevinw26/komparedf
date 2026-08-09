@@ -1,0 +1,12 @@
+.Rhistory
+.RData
+.Ruserdata
+.Renviron
+.Rproj.user/
+*.Rcheck/
+/*.Rproj
+*.o
+*.so
+*.dll
+.DS_Store
+Thumbs.db
