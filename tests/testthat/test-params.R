@@ -11,6 +11,16 @@ test_that("digits sets the numeric tolerance", {
   expect_length(kompare(l, wide, by = "id", digits = -1)$diffs, 0)
 })
 
+test_that("digits is bounded to the range where rounding is meaningful", {
+  l <- tibble::tibble(id = 1, x = 1)
+  r <- tibble::tibble(id = 1, x = 9)
+
+  # would coerce to NA and silently match every numeric column
+  expect_error(kompare(l, r, by = "id", digits = 1e10), "between -22 and 22")
+  expect_error(kompare(l, r, by = "id", digits = 23), "between -22 and 22")
+  expect_error(kompare(l, r, by = "id", digits = -23), "between -22 and 22")
+})
+
 test_that("strings = 'strict' compares exactly", {
   l <- tibble::tibble(id = 1:2, s = c("a", "b"))
   r <- l |> mutate(s = c("A ", "b"))
@@ -31,9 +41,9 @@ test_that("ignore drops columns from value comparison", {
   expect_equal(nrow(kompare(l, r, by = "id")$diffs$dbl), 2)
   expect_length(kompare(l, r, by = "id", ignore = "updated")$diffs, 0)
   expect_equal(attr(kompare(l, r, by = "id", ignore = "updated"), "compared")[["cols"]], 2)
-  expect_equal(
-    attr(kompare(l, r, by = "id", ignore = c("id", "updated")), "compared")[["cols"]],
-    1
+  expect_error(
+    kompare(l, r, by = "id", ignore = c("id", "updated")),
+    "ignore must not include by columns: id"
   )
 
   retyped <- l |> mutate(updated = as.character(updated))
@@ -127,7 +137,7 @@ test_that("fn must be a function returning a frame with the by columns", {
   l <- tibble::tibble(id = 1, x = 1)
 
   expect_error(kompare(l, l, by = "id", fn = NULL), "fn must be a function")
-  expect_error(kompare(l, l, by = "id", fn = \(d) d$id), "must return a data frame")
+  expect_error(kompare(l, l, by = "id", fn = \(d) d$id), "must be a data frame")
   expect_error(kompare(l, l, by = "id", fn = \(d) select(d, x)), "missing from l")
   expect_error(kompare(l, l, by = "id", fn = \(d) mutate(d, .rn = 1)), "reserved column name")
 })

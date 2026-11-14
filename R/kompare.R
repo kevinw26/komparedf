@@ -71,7 +71,8 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' @param by How to match rows: a [dplyr::join_by()] object, a character
 #'   vector of shared column names, or a named vector (`c(l = "r")`). `NULL`
 #'   (default) compares rows by position.
-#' @param digits Decimal places for numeric tolerance. Default `4`.
+#' @param digits Decimal places for numeric tolerance, between -22 and 22.
+#'   Default `4`.
 #' @param strings `"strict"` (default) or a `_`-joined combination of
 #'   `"ignorecase"` and `"trim"`, in any order (e.g. `"ignorecase_trim"`).
 #' @param factors `"as_strings"` (default) or `"as_factors"` (compared as
@@ -81,10 +82,13 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' @param ignore Columns skipped in value comparisons, selected with
 #'   [tidyselect::language] syntax: character vectors, bare names, or helpers
 #'   (e.g. `c(price)`, `starts_with("cost")`). Matching ignores case. Columns
-#'   must exist in at least one frame. `NULL` (default) ignores nothing.
+#'   must exist in at least one frame and must not be `by` columns. `NULL`
+#'   (default) ignores nothing.
 #' @param fn Applied to both frames before comparing; its output is ungrouped.
 #'   Default `\(d) d`.
-#' @param ... Aliases.
+#' @param ... Not used; must be empty.
+#' @param keys,round,roundDigits Aliases for `by` and `digits`; supply at
+#'   most one of each pair.
 #'
 #' @return A `kompare` list: `schema` (columns missing on one side or
 #'   retyped), `keys` (rows with no match), and `diffs` (differing rows, by
@@ -95,8 +99,10 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' are compared for values. With `factors = "as_factors"`, factor columns
 #' whose levels differ in set or order land in `schema`, with their level
 #' definitions shown. `POSIXct` columns at midnight become `Date`, with a
-#' message. `by` columns must be unique on each side. `print()` also reports
-#' matched rows and compared columns.
+#' message. `by` columns must be unique on each side. `NA` values in `by`
+#' columns match one another, so rows with missing keys are paired; `NaN`
+#' values compare equal to each other and `Inf` compares normally. `print()`
+#' also reports matched rows and compared columns.
 #'
 #' @section Error conditions:
 #' With `raise_error = TRUE`, errors of class `kompare_error` carry the
@@ -107,7 +113,7 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' r <- tibble::tibble(id = 1:3, x = c(1, 2.5, 3))
 #' kompare(l, r, dplyr::join_by(id))
 #'
-#' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool enquo quo_get_expr quo_set_expr is_symbol is_call as_string try_fetch dots_list env_get_list
+#' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool enquo quo_get_expr quo_set_expr is_symbol is_call as_string try_fetch check_dots_empty check_exclusive env_get_list
 #' @importFrom dplyr rename_with select all_of mutate across row_number full_join inner_join bind_rows bind_cols filter distinct pull rename join_by cur_column ungroup where
 #' @importFrom tidyr drop_na
 #' @importFrom purrr map map_chr map_lgl map2 set_names discard imap
@@ -122,17 +128,26 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' @export
 kompare <- \(
   l, r, by = NULL, digits = 4, strings = "strict", factors = "as_strings",
-  raise_error = FALSE, ignore = NULL, fn = \(d) d, ...
+  raise_error = FALSE, ignore = NULL, fn = \(d) d,
+  ...,
+  keys = NULL, round = NULL, roundDigits = NULL
 ) {
-  # aliases from dots: keys -> by; roundDigits, round -> digits
-  dots <- dots_list(...)
-  if (!is.null(dots$keys)) by <- dots$keys
-  if (!is.null(dots$roundDigits)) digits <- dots$roundDigits
-  if (!is.null(dots$round)) digits <- dots$round
+  # dots and alias validation
+  check_dots_empty()
+  check_exclusive(by, keys, .require = FALSE)
+  check_exclusive(round, roundDigits, .require = FALSE)
+  if ((!is.null(round) || !is.null(roundDigits)) && !missing(digits)) {
+    abort("specify only one of digits and its aliases round or roundDigits")
+  }
+  if (!is.null(keys)) by <- keys
+  if (!is.null(roundDigits)) digits <- roundDigits
+  if (!is.null(round)) digits <- round
 
-  # arg validation and parsing
-  if (!is_scalar_integerish(digits) || !is.finite(digits)) {
-    abort("digits must be a single integer")
+  # further arg validation and parsing
+  if (!is_scalar_integerish(digits) ||
+    !is.finite(digits) ||
+    abs(digits) > 22) {
+    abort("digits must be a single integer between -22 and 22")
   }
   digits <- as.integer(digits)
   if (!is_string(strings)) {
@@ -167,33 +182,6 @@ kompare <- \(
       \(x) factor(x, levels = factor_lvls[[cur_column()]])
     ))
   }
-
-  all_midnight <- \(x) all(hour(x) == 0 & minute(x) == 0 & second(x) == 0, na.rm = TRUE)
-
-  date_cols <- \(d) d |>
-    select(where(\(x) inherits_any(x, "POSIXt") && all_midnight(x))) |>
-    names()
-
-  # factor cols shared by both sides, with levels unioned for comparison
-  factor_cols <- intersect(
-    l |> select(where(is.factor)) |> names(),
-    r |> select(where(is.factor)) |> names()
-  )
-  factor_lvls <- factor_cols |>
-    set_names(factor_cols) |>
-    map(\(col) union(levels(l[[col]]), levels(r[[col]])))
-
-  # datetime columns with no time component, warned once across both sides
-  # coerce to date where needed
-  cols_to_date <- union(date_cols(l), date_cols(r))
-  if (length(cols_to_date) > 0) {
-    inform(glue(
-      "columns {str_c(cols_to_date, collapse = ', ')} have no time component and were converted ",
-      "to lubridate date"))
-  }
-  unify_dates <- \(d) mutate(d, across(all_of(intersect(cols_to_date, names(d))), as_date))
-  l <- l |> unify_dates()
-  r <- r |> unify_dates()
 
   # construct and validate by
   check_by_repeats <- \(x, side = NULL) {
@@ -286,12 +274,7 @@ kompare <- \(
   }
 
   apply_fn <- \(d, side) {
-    out <- fn(d)
-    if (!is.data.frame(out)) {
-      abort(glue("fn must return a data frame; {side} returned {class(out)[1]}"))
-    }
-    out <- out |> ungroup()
-    check_names(out, side)
+    out <- validate_frame(fn(d), glue("fn output for {side}"))
     if (!is.null(by)) {
       check_by_exists(by, names(out), side)
     }
@@ -300,6 +283,36 @@ kompare <- \(
 
   l <- apply_fn(l, "l")
   r <- apply_fn(r, "r")
+
+  # midnight datetimes become dates after fn; all-na columns are not midnight
+  all_midnight <- \(x) {
+    !all(is.na(x)) && all(hour(x) == 0 & minute(x) == 0 & second(x) == 0, na.rm = TRUE)
+  }
+
+  date_cols <- \(d) d |>
+    select(where(\(x) inherits_any(x, "POSIXt") && all_midnight(x))) |>
+    names()
+
+  cols_to_date <- union(date_cols(l), date_cols(r))
+  if (length(cols_to_date) > 0) {
+    inform(glue(
+      "columns {str_c(cols_to_date, collapse = ', ')} have no time component and were converted ",
+      "to lubridate date"))
+  }
+  unify_dates <- \(d) mutate(d, across(all_of(intersect(cols_to_date, names(d))), as_date))
+  l <- l |> unify_dates()
+  r <- r |> unify_dates()
+
+  # factor cols shared by both sides, with levels unioned for comparison;
+  # rebuild after fn, which may change levels
+  factor_cols <- intersect(
+    l |> select(where(is.factor)) |> names(),
+    r |> select(where(is.factor)) |> names()
+  )
+  factor_lvls <- factor_cols |>
+    set_names(factor_cols) |>
+    map(\(col) union(levels(l[[col]]), levels(r[[col]])))
+
   if (!is.null(by)) {
     # fn can change key types; validate afterwards, naming fn as the cause
     check_by_types(l, r, by, "fn left by columns with incompatible types in l and r")
@@ -337,6 +350,10 @@ kompare <- \(
         "by {str_c(by, collapse = ', ')} must uniquely identify all rows in r; ",
         "repeated keys: {format_dupes(r)}"
       ))
+    }
+    ignored_keys <- intersect(ignore, by)
+    if (length(ignored_keys) > 0) {
+      abort(glue("ignore must not include by columns: {str_c(ignored_keys, collapse = ', ')}"))
     }
   }
 
@@ -458,7 +475,7 @@ kompare <- \(
     dims     = c(nrow(l), nrow(r)),
     compared = c(
       rows = (nrow(l) + nrow(r) - nrow(unmatched)) / 2,
-      cols = length(compared_cols) + length(setdiff(by, ignore))
+      cols = length(compared_cols) + length(setdiff(by, ignore)) - (".rn" %in% by)
     ),
     settings = env_get_list(
       environment(),

@@ -150,3 +150,25 @@ test_that("asymmetric by rejects renames that would collide", {
     "already has those columns"
   )
 })
+
+test_that("dots reject unknown names and alias conflicts", {
+  l <- tibble::tibble(id = 1, x = 1)
+
+  expect_error(kompare(l, l, keyz = "id"), "must be empty")
+  expect_error(kompare(l, l, by = "id", keys = "id"), "Exactly one of")
+  expect_error(kompare(l, l, by = "id", digits = 2, round = 2), "only one of digits")
+  expect_error(kompare(l, l, by = "id", round = 2, roundDigits = 2), "Exactly one of")
+})
+
+test_that("fn output is re-validated for emptiness", {
+  l <- tibble::tibble(id = 1, x = 1)
+
+  expect_error(kompare(l, l, fn = \(d) d[0, ]), "must not be empty")
+  expect_error(kompare(l, l, fn = \(d) d[, 0]), "at least one column")
+})
+
+test_that("positional comparison does not count the row number as a column", {
+  l <- tibble::tibble(a = 1:2, b = 3:4)
+
+  expect_equal(attr(kompare(l, l), "compared")[["cols"]], 2)
+})

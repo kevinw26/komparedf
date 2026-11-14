@@ -62,3 +62,14 @@ test_that("factor in one frame only lands in schema", {
   expect_equal(nrow(out$schema), 1)
   expect_equal(out$schema$col, "x")
 })
+
+test_that("as_factors uses levels after fn, not before", {
+  l <- tibble(id = 1:2, f = factor(c("a", "a")))
+  r <- tibble(id = 1:2, f = factor(c("a", "b")))
+  fn <- \(d) mutate(d, f = factor(if_else(f == "a", "x", "y"), levels = c("x", "y")))
+
+  out <- kompare(l, r, by = "id", factors = "as_factors", fn = fn)
+
+  expect_equal(nrow(out$diffs$fct), 1)
+  expect_equal(out$diffs$fct$id, 2)
+})

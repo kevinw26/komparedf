@@ -268,3 +268,13 @@ test_that("a type key does not clash with the diff type label", {
   out2 <- kompare(l2, l2 |> mutate(x = c(9, 2)), by = c("type", "data_type"))
   expect_true(any(str_detect(capture.output(print(out2)), "\\.data_type")))
 })
+
+test_that("all-NA datetime columns are not coerced to date", {
+  l <- tibble(id = 1:2, dt = as.POSIXct(c(NA, NA)))
+  r <- tibble(id = 1:2, dt = as.POSIXct(c("2020-01-01 12:00:00", NA)))
+
+  out <- kompare(l, r, by = "id")
+
+  expect_equal(nrow(out$schema), 0)
+  expect_equal(nrow(out$diffs$dttm), 1)
+})

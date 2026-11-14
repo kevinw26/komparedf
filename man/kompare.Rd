@@ -14,7 +14,10 @@ kompare(
   raise_error = FALSE,
   ignore = NULL,
   fn = function(d) d,
-  ...
+  ...,
+  keys = NULL,
+  round = NULL,
+  roundDigits = NULL
 )
 }
 \arguments{
@@ -24,7 +27,8 @@ kompare(
 vector of shared column names, or a named vector (\code{c(l = "r")}). \code{NULL}
 (default) compares rows by position.}
 
-\item{digits}{Decimal places for numeric tolerance. Default \code{4}.}
+\item{digits}{Decimal places for numeric tolerance, between -22 and 22.
+Default \code{4}.}
 
 \item{strings}{\code{"strict"} (default) or a \verb{_}-joined combination of
 \code{"ignorecase"} and \code{"trim"}, in any order (e.g. \code{"ignorecase_trim"}).}
@@ -38,12 +42,16 @@ factors; columns whose levels differ in set or order land in \code{schema}).}
 \item{ignore}{Columns skipped in value comparisons, selected with
 \link[tidyselect:language]{tidyselect::language} syntax: character vectors, bare names, or helpers
 (e.g. \code{c(price)}, \code{starts_with("cost")}). Matching ignores case. Columns
-must exist in at least one frame. \code{NULL} (default) ignores nothing.}
+must exist in at least one frame and must not be \code{by} columns. \code{NULL}
+(default) ignores nothing.}
 
 \item{fn}{Applied to both frames before comparing; its output is ungrouped.
 Default \verb{\\(d) d}.}
 
-\item{...}{Aliases.}
+\item{...}{Not used; must be empty.}
+
+\item{keys, round, roundDigits}{Aliases for \code{by} and \code{digits}; supply at
+most one of each pair.}
 }
 \value{
 A \code{kompare} list: \code{schema} (columns missing on one side or
@@ -58,8 +66,10 @@ Names are matched case-insensitively; only columns sharing name and type
 are compared for values. With \code{factors = "as_factors"}, factor columns
 whose levels differ in set or order land in \code{schema}, with their level
 definitions shown. \code{POSIXct} columns at midnight become \code{Date}, with a
-message. \code{by} columns must be unique on each side. \code{print()} also reports
-matched rows and compared columns.
+message. \code{by} columns must be unique on each side. \code{NA} values in \code{by}
+columns match one another, so rows with missing keys are paired; \code{NaN}
+values compare equal to each other and \code{Inf} compares normally. \code{print()}
+also reports matched rows and compared columns.
 }
 \section{Error conditions}{
 
