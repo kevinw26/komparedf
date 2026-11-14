@@ -33,6 +33,12 @@ validate_frame <- \(d, name) {
   if (!is.data.frame(d)) {
     abort(glue("{name} must be a data frame, not {class(d)[1]}"))
   }
+  if (nrow(d) == 0) {
+    abort(glue("{name} must not be empty"))
+  }
+  if (ncol(d) == 0) {
+    abort(glue("{name} must have at least one column"))
+  }
   d <- d |>
     ungroup() |>
     set_names(str_to_lower(names(d)))
@@ -101,10 +107,10 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' r <- tibble::tibble(id = 1:3, x = c(1, 2.5, 3))
 #' kompare(l, r, dplyr::join_by(id))
 #'
-#' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool enquo quo_get_expr quo_set_expr is_symbol is_call as_string try_fetch dots_list
-#' @importFrom dplyr rename_with select all_of mutate across row_number full_join inner_join bind_rows filter distinct pull rename join_by cur_column ungroup where
-#' @importFrom tidyr pivot_longer drop_na
-#' @importFrom purrr map map_chr map_lgl map2 set_names discard
+#' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool enquo quo_get_expr quo_set_expr is_symbol is_call as_string try_fetch dots_list env_get_list
+#' @importFrom dplyr rename_with select all_of mutate across row_number full_join inner_join bind_rows bind_cols filter distinct pull rename join_by cur_column ungroup where
+#' @importFrom tidyr drop_na
+#' @importFrom purrr map map_chr map_lgl map2 set_names discard imap
 #' @importFrom stringr str_to_lower str_c str_trim str_split_1 str_detect
 #' @importFrom glue glue
 #' @importFrom tibble tibble
@@ -165,7 +171,6 @@ kompare <- \(
   date_cols <- \(d) d |>
     select(where(\(x) inherits_any(x, "POSIXt") && all_midnight(x))) |>
     names()
-  neq <- \(x, y) !vec_equal(x, y, na_equal = TRUE)
 
   # factor cols shared by both sides, with levels unioned for comparison
   factor_cols <- intersect(
@@ -202,7 +207,7 @@ kompare <- \(
       abort(glue("by columns missing from {side}: {str_c(missing, collapse = ', ')}"))
     }
   }
-  check_by_types <- \(l, r, by) {
+  check_by_types <- \(l, r, by, origin = "by columns must have compatible types in l and r") {
     ok <- map_lgl(by, \(col) {
       try_fetch(
         {
@@ -213,10 +218,7 @@ kompare <- \(
       )
     })
     if (!all(ok)) {
-      abort(glue(
-        "by columns must have compatible types in l and r: ",
-        "{str_c(by[!ok], collapse = ', ')}"
-      ))
+      abort(glue("{origin}: {str_c(by[!ok], collapse = ', ')}"))
     }
   }
   if (!is.null(by) && !is.character(by) && !inherits_any(by, "dplyr_join_by")) {
@@ -288,8 +290,8 @@ kompare <- \(
   l <- apply_fn(l, "l")
   r <- apply_fn(r, "r")
   if (!is.null(by)) {
-    # fn can change key types; validate afterwards
-    check_by_types(l, r, by)
+    # fn can change key types; validate afterwards, naming fn as the cause
+    check_by_types(l, r, by, "fn left by columns with incompatible types in l and r")
   }
 
   # resolve columns ignored in case insensitive tidyselect
@@ -348,6 +350,13 @@ kompare <- \(
   check_cells(l, r, compared_cols)
 
   # construct diffs by type
+  neq <- \(x, y) {
+    if (is.numeric(x) && is.numeric(y)) {
+      x <- if (any(is.nan(x))) replace(x, is.nan(x), NA) else x
+      y <- if (any(is.nan(y))) replace(y, is.nan(y), NA) else y
+    }
+    !vec_equal(x, y, na_equal = TRUE)
+  }
   d_types <- na.omit(dt |> filter(dt.l == dt.r) |> distinct(dt.l) |> drop_na() |> pull())
   diffs <- d_types |>
     map(\(type) {
@@ -356,28 +365,48 @@ kompare <- \(
           setdiff(by) |> setdiff(ignore)
       )
       if (length(cols) == 0) return(tibble())
+
+      # join once for this type, comparing every column pairwise
       comp <- inner_join(
         l |> select(all_of(c(by, cols))) |> clean_types(),
         r |> select(all_of(c(by, cols))) |> clean_types(),
         by = by, suffix = c("\x1f.l", "\x1f.r")
-      ) |>
-        pivot_longer(-all_of(by), names_sep = "\x1f", names_to = c("col", ".value"))
-      if (type %in% c("dbl", "int")) {
-        comp |>
-          mutate(.l = round(.l, digits), .r = round(.r, digits)) |>
-          filter(neq(.l, .r))
-      } else if (type == "chr" && (sf_ignorecase || sf_trim)) {
-        clean_str <- \(s) {
-          if (sf_ignorecase) s <- str_to_lower(s)
-          if (sf_trim) s <- str_trim(s)
-          s
-        }
-        comp |>
-          mutate(.l = clean_str(.l), .r = clean_str(.r)) |>
-          filter(neq(.l, .r))
-      } else {
-        comp |> filter(neq(.l, .r))
+      )
+
+      # compare whole columns at once, one logical mask per column
+      clean_str <- \(s) {
+        if (sf_ignorecase) s <- str_to_lower(s)
+        if (sf_trim) s <- str_trim(s)
+        s
       }
+      differs <- \(x, y) {
+        if (type %in% c("dbl", "int")) return(neq(round(x, digits), round(y, digits)))
+        if (type == "chr") return(neq(clean_str(x), clean_str(y)))
+        neq(x, y)
+      }
+      mask <- cols |>
+        set_names(cols) |>
+        map(\(col) differs(comp[[str_c(col, "\x1f.l")]], comp[[str_c(col, "\x1f.r")]]))
+
+      # locate differing cells from the masks, then pull only those cells;
+      # no pivot, so cost scales with differences rather than cells
+      mask |>
+        imap(\(m, col) {
+          rows <- if (is.matrix(m)) which(rowSums(m) > 0) else which(m)
+          if (length(rows) == 0) return(NULL)
+          nm_l <- str_c(col, "\x1f.l")
+          nm_r <- str_c(col, "\x1f.r")
+          take <- \(x) if (is.matrix(x)) x[rows, , drop = FALSE] else x[rows]
+          bind_cols(
+            comp[rows, by, drop = FALSE],
+            tibble(
+              col = col,
+              .l = take(comp[[nm_l]]),
+              .r = take(comp[[nm_r]])
+            )
+          )
+        }) |>
+        bind_rows()
     }) |>
     set_names(d_types) |>
     discard(\(d) nrow(d) == 0)
@@ -402,13 +431,9 @@ kompare <- \(
       rows = (nrow(l) + nrow(r) - nrow(unmatched)) / 2,
       cols = length(compared_cols) + length(setdiff(by, ignore))
     ),
-    settings = list(
-      by = by,
-      digits = digits,
-      strings = strings,
-      factors = factors,
-      ignore = ignore,
-      n_cols = n_cols
+    settings = env_get_list(
+      environment(),
+      c("by", "digits", "strings", "factors", "ignore", "n_cols")
     ),
     class = "kompare"
   )
