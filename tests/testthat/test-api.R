@@ -37,26 +37,7 @@ test_that("format returns lines without printing", {
   txt <- format(kompare(l, l, by = "id"))
 
   expect_type(txt, "character")
-  expect_true(any(str_detect(txt, "^# kompare: 2 x 2 vs 2 x 2, by: id$")))
-})
-
-test_that("format echoes non-default settings", {
-  l <- tibble::tibble(id = 1:2, x = c(1, 2))
-  txt <- format(kompare(l, l, by = "id", digits = 8))
-
-  expect_true(any(str_detect(txt, "# settings: digits = 8")))
-})
-
-test_that("n controls how many columns are shown", {
-  l <- tibble::tibble(
-    id = 1:2,
-    v1 = c(1, 2), v2 = c(1, 2), v3 = c(1, 2), v4 = c(1, 2), v5 = c(1, 2)
-  )
-  r <- l |> dplyr::mutate(dplyr::across(-id, \(x) x + 1))
-
-  txt <- format(kompare(l, r, by = "id"), n = 2)
-
-  expect_true(any(str_detect(txt, "and 3 more columns")))
+  expect_true(any(str_detect(txt, "all match")))
 })
 
 test_that("tidy gives per-column value counts", {

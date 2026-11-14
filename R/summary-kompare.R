@@ -79,22 +79,6 @@ f_num <- \(x) {
     }
   }
 
-  counts <- x$diffs |>
-    map(\(d) d[["col"]]) |>
-    unlist() |>
-    table() |>
-    sort(decreasing = TRUE)
-  if (length(counts) > 0) {
-    width <- counts |> names() |> str_length() |> max()
-    lines <- c(
-      lines, "", "difference counts by column:",
-      imap_chr(head(counts, n), \(n, col) sprintf("  %-*s  %d", width, col, n))
-    )
-    if (length(counts) > n) {
-      lines <- c(lines, cli::col_grey(.glue("  # ... and {length(counts) - n} more columns")))
-    }
-  }
-
   lines <- c(lines, "", .glue(
     "compared {f_num(compared[['rows']])} rows",
     " and {f_num(compared[['cols']])} columns"
@@ -125,15 +109,14 @@ f_num <- \(x) {
 #' Prints the difference report.
 #'
 #' @param object A `kompare` object.
-#' @param n Rows and columns shown per section. Default `5`.
 #' @param ... Not used.
 #'
 #' @return `object`, invisibly.
 #'
-#' @importFrom dplyr bind_rows pull
+#' @importFrom dplyr bind_rows
 #' @importFrom glue glue
-#' @importFrom stringr str_c str_detect str_remove_all str_length
-#' @importFrom purrr imap imap_chr map map_int
+#' @importFrom stringr str_c str_detect str_remove_all
+#' @importFrom purrr imap map_int
 #'
 #' @export
 summary.kompare <- \(object, n = 5, ...) {

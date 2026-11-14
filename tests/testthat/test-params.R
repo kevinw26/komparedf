@@ -8,6 +8,7 @@ test_that("digits sets the numeric tolerance", {
   expect_length(kompare(l, r, by = "id")$diffs, 0)
   expect_length(kompare(l, r, by = "id", digits = 8)$diffs, 1)
   expect_length(kompare(l, wide, by = "id", digits = 0)$diffs, 1)
+  expect_length(kompare(l, wide, by = "id", digits = -1)$diffs, 0)
 })
 
 test_that("strings = 'strict' compares exactly", {

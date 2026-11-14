@@ -6,16 +6,14 @@
 \alias{format.kompare}
 \title{Summarize a kompare object}
 \usage{
-\method{summary}{kompare}(object, n = 5, ...)
+\method{summary}{kompare}(object, ...)
 
-\method{print}{kompare}(x, n = 5, ...)
+\method{print}{kompare}(x, ...)
 
-\method{format}{kompare}(x, n = 5, ...)
+\method{format}{kompare}(x, ...)
 }
 \arguments{
 \item{object}{A \code{kompare} object.}
-
-\item{n}{Rows and columns shown per section. Default \code{5}.}
 
 \item{...}{Not used.}
 }

@@ -21,20 +21,20 @@ r <- tibble(id = 1:4, price = c(10, 21, 30, 40))
 kompare(l, r, by = join_by(id))
 ```
 ```
-<kompare>
+# kompare: 3 x 2 vs 4 x 2, by: id
 schema mismatches: 0
-unmatched keys: 1
-       id .l    .r
-  1     4 NA    TRUE
+unmatched keys: 1 (0 in l only, 1 in r only)
+       id .l    .r   
+  1     4 NA    TRUE 
 
-value differences by type (up to five of each type shown):
-    type     id col   .l    .r
-  1 dbl       2 price 20    21
+value differences by type:
+    type     id col   .l    .r   
+  1 dbl       2 price 20    21   
 
 compared 3 rows and 2 columns
 
-ℹ l and r have different lengths (3 vs 4)
 ℹ 2 differences found
+ℹ l and r have different lengths (3 vs 4)
 ```
 
 `by` takes a `join_by()` object, a character vector of shared names, or a named
