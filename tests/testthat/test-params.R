@@ -128,9 +128,9 @@ test_that("ignore accepts bare column names", {
   expect_length(kompare(l, r, by = "id", ignore = all_of(cols))$diffs, 0)
   expect_length(kompare(l, r, by = "id", ignore = c(Price))$diffs, 0)
   expect_length(kompare(l, r, by = "id", ignore = starts_with("pri"))$diffs, 0)
-  expect_error(kompare(l, r, by = "id", ignore = c("price", NA)), "missing values")
-  expect_error(kompare(l, r, by = "id", ignore = c(price, NA)), "missing values")
-  expect_error(kompare(l, r, by = "id", ignore = NA), "missing values")
+  expect_error(kompare(l, r, by = "id", ignore = c("price", NA)), "valid tidyselect")
+  expect_error(kompare(l, r, by = "id", ignore = c(price, NA)), "valid tidyselect")
+  expect_error(kompare(l, r, by = "id", ignore = NA), "valid tidyselect")
 })
 
 test_that("fn must be a function returning a frame with the by columns", {
@@ -160,4 +160,15 @@ test_that("print requires a positive integer n", {
   expect_error(print(out, n = 2.5), "positive integer")
   expect_error(format(out, n = -1), "positive integer")
   expect_no_error(capture.output(print(out, n = 2)))
+})
+
+test_that("type predicates in ignore see real column types", {
+  l <- tibble::tibble(id = c("a", "b"), n = c(1, 2), s = c("a", "b"))
+  r <- l |> mutate(n = n + 1, s = c("a", "z"))
+
+  out <- kompare(l, r, by = "id", ignore = dplyr::where(is.numeric))
+
+  expect_equal(attr(out, "settings")$ignore, "n")
+  expect_null(out$diffs$dbl)
+  expect_equal(nrow(out$diffs$chr), 1)
 })

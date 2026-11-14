@@ -172,3 +172,17 @@ test_that("positional comparison does not count the row number as a column", {
 
   expect_equal(attr(kompare(l, l), "compared")[["cols"]], 2)
 })
+
+test_that("by rejects missing and empty column names", {
+  l <- tibble::tibble(id = 1:2)
+
+  expect_error(kompare(l, l, by = NA_character_), "must not be NA or empty")
+  expect_error(kompare(l, l, by = ""), "must not be NA or empty")
+  expect_error(kompare(l, l, by = c("id", NA)), "must not be NA or empty")
+})
+
+test_that("by columns must be atomic", {
+  l <- tibble::tibble(id = list(1, 2), x = 1:2)
+
+  expect_error(kompare(l, l, by = "id"), "by columns must be atomic")
+})

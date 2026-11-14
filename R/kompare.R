@@ -23,9 +23,14 @@ lower_selection <- \(expr) {
 # resolve ignore with tidyselect, lowering selections to match column names
 resolve_ignore_cols <- \(quo, l, r) {
   cols  <- union(names(l), names(r))
-  proxy <- set_names(as.list(rep(0L, length(cols))), cols)
+  proxy <- cols |>
+    set_names(cols) |>
+    map(\(col) vec_ptype(l[[col]] %||% r[[col]]))
   quo   <- quo_set_expr(quo, lower_selection(quo_get_expr(quo)))
-  tidyselect::eval_select(quo, proxy, allow_rename = FALSE) |> names()
+  try_fetch(
+    tidyselect::eval_select(quo, proxy, allow_rename = FALSE) |> names(),
+    error = \(cnd) abort("ignore must be a valid tidyselect selection", parent = cnd)
+  )
 }
 
 # check a frame, lower-case its names, reject duplicates the lowercasing creates
@@ -113,7 +118,7 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' r <- tibble::tibble(id = 1:3, x = c(1, 2.5, 3))
 #' kompare(l, r, dplyr::join_by(id))
 #'
-#' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool enquo quo_get_expr quo_set_expr is_symbol is_call as_string try_fetch check_dots_empty check_exclusive env_get_list
+#' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool enquo quo_get_expr quo_set_expr is_symbol is_call as_string try_fetch check_dots_empty check_exclusive env_get_list "%||%"
 #' @importFrom dplyr rename_with select all_of mutate across row_number full_join inner_join bind_rows bind_cols filter distinct pull rename join_by cur_column ungroup where
 #' @importFrom tidyr drop_na
 #' @importFrom purrr map map_chr map_lgl map2 set_names discard imap
@@ -123,7 +128,7 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' @importFrom stats na.omit
 #' @importFrom utils globalVariables
 #' @importFrom lubridate as_date hour minute second
-#' @importFrom vctrs vec_ptype_abbr vec_ptype_common vec_equal vec_in
+#' @importFrom vctrs vec_ptype vec_ptype_abbr vec_ptype_common vec_equal vec_in
 #'
 #' @export
 kompare <- \(
@@ -202,12 +207,19 @@ kompare <- \(
   }
 
   check_by_types <- \(l, r, by, origin = "by columns must have compatible types in l and r") {
+    non_atomic <- discard(by, \(col) is.atomic(l[[col]]) && is.atomic(r[[col]]))
+    if (length(non_atomic) > 0) {
+      abort(glue(
+        "by columns must be atomic, not list or other recursive types: ",
+        "{str_c(non_atomic, collapse = ', ')}"
+      ))
+    }
     ok <- map_lgl(by, \(col) {
       try_fetch(
-      {
-        vec_ptype_common(l[[col]], r[[col]])
-        TRUE
-      },
+        {
+          vec_ptype_common(l[[col]], r[[col]])
+          TRUE
+        },
         error = \(cnd) FALSE
       )
     })
@@ -233,6 +245,9 @@ kompare <- \(
       }
       lhs <- names(by)
       rhs <- unname(by)
+    }
+    if (anyNA(lhs) || anyNA(rhs) || any(c(lhs, rhs) == "")) {
+      abort("by columns must not be NA or empty strings")
     }
     by <- join_by(!!!map2(lhs, rhs, \(x, y) expr(!!sym(x) == !!sym(y))))
   }
