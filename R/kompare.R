@@ -398,13 +398,3 @@ kompare <- \(
   }
   return(summ)
 }
-
-#' Do two frames match
-#'
-#' @param x A `kompare` object.
-#'
-#' @return `TRUE` when there are no schema mismatches, unmatched keys, or
-#'   value differences.
-#'
-#' @export
-is_equal <- \(x) as.logical(x)

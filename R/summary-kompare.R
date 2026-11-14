@@ -23,7 +23,7 @@ f_num <- \(x) {
 }
 
 # positive whole number of rows to show
-check_n <- \(n) {
+.check_n <- \(n) {
   if (!is.numeric(n) || !is_scalar_integerish(n) || !is.finite(n) || n < 1) {
     abort("n must be a positive integer")
   }
@@ -43,7 +43,7 @@ check_n <- \(n) {
 
 # render a kompare object as lines
 .format_kompare <- \(x, n = 5) {
-  n <- check_n(n)
+  n <- .check_n(n)
   settings <- attr(x, "settings")
   dims <- attr(x, "dims")
   compared <- attr(x, "compared")
@@ -109,8 +109,7 @@ check_n <- \(n) {
   }
 
   lines <- c(lines, "", .glue(
-    "compared {f_num(compared[['rows']])} rows",
-    " and {f_num(compared[['cols']])} columns"
+    "compared {f_num(compared[['rows']])} rows and {f_num(compared[['cols']])} columns"
   ))
 
   notes <- character()
@@ -201,3 +200,13 @@ tidy.kompare <- \(x, ...) {
 as.logical.kompare <- \(x, ...) {
   nrow(x$schema) == 0 && nrow(x$keys) == 0 && length(x$diffs) == 0
 }
+
+#' Do two frames match
+#'
+#' @param x A `kompare` object.
+#'
+#' @return `TRUE` when there are no schema mismatches, unmatched keys, or
+#'   value differences.
+#'
+#' @export
+is_equal <- \(x) as.logical(x)
