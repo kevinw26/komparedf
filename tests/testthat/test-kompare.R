@@ -226,7 +226,7 @@ test_that("kompare compares list columns", {
   expect_true(as.logical(kompare(l, l, by = "id")))
 })
 
-test_that("kompare compares matrix columns row by row", {
+test_that("matrix and array columns compare and print as row cells", {
   l <- tibble(id = 1:2, x = matrix(c(1, 2, 3, 4), 2))
   r <- tibble(id = 1:2, x = matrix(c(1, 9, 3, 4), 2))
 
@@ -236,15 +236,42 @@ test_that("kompare compares matrix columns row by row", {
   expect_equal(nrow(flagged), 1)
   expect_equal(flagged$id, 2)
   expect_true(as.logical(kompare(l, l, by = "id")))
+
+  txt <- capture.output(print(out))
+  expect_true(any(str_detect(txt, "<2, 4>")))
+  expect_true(any(str_detect(txt, "<9, 4>")))
+
+  a <- array(as.double(1:8), c(2, 2, 2))
+  b <- a
+  b[1, , 1] <- 9
+  arr <- kompare(tibble(id = 1:2, x = a), tibble(id = 1:2, x = b), by = "id")
+
+  expect_equal(nrow(arr$diffs[["dbl[,2,2]"]]), 1)
+
+  d1 <- tibble(id = 1:2, x = tibble(y = 1:2, z = 3:4))
+  d2 <- tibble(id = 1:2, x = tibble(y = 1:2, z = c(3, 5)))
+  expect_equal(nrow(kompare(d1, d2, by = "id")$diffs[["tibble[,2]"]]), 1)
+
+  # wide row cells are clipped rather than printed in full
+  wide <- matrix(1, 2, 10)
+  wide_r <- wide
+  wide_r[2, ] <- 2
+  wide_txt <- capture.output(print(kompare(
+    tibble(id = 1:2, x = wide), tibble(id = 1:2, x = wide_r),
+    by = "id"
+  )))
+  expect_true(any(str_detect(wide_txt, "<1, 1, 1, 1, 1, 1, …>")))
 })
 
-test_that("print renders matrix differences", {
-  l <- tibble(id = 1:2, x = matrix(c(1, 2, 3, 4), 2))
-  r <- tibble(id = 1:2, x = matrix(c(1, 9, 3, 4), 2))
+test_that("print handles differences of several types", {
+  l <- tibble(id = 1:2, x = c(1, 2), s = c("a", "b"), m = matrix(c(1, 2, 3, 4), 2))
+  r <- tibble(id = 1:2, x = c(1, 9), s = c("a", "z"), m = matrix(c(1, 9, 3, 4), 2))
 
   txt <- capture.output(print(kompare(l, r, by = "id")))
 
-  expect_true(any(str_detect(txt, "2/4")))
+  expect_true(any(str_detect(txt, "dbl")))
+  expect_true(any(str_detect(txt, "chr")))
+  expect_true(any(str_detect(txt, "<2, 4>")))
 })
 
 test_that("by rejects names reserved by the result schema", {

@@ -10,16 +10,32 @@ f_num <- \(x) {
 .table_lines <- \(d, n = 5) {
   lines <- capture.output(print(head(d, n)))
   lines <- lines[!str_detect(str_remove_all(lines, "\x1b\\[[0-9;]*m"), "^\\s*(<|#)")]
+  lines <- str_trim(lines, side = "right")
   .glue("  {lines}")
 }
 
-# one display string per row, whatever the column type
-.fmt_cell <- \(x) {
-  if (is.matrix(x) || is.data.frame(x)) return(
-    map_chr(seq_len(nrow(x)), \(i) str_c(unlist(x[i,], use.names = FALSE), collapse = "/"))
-  )
-  if (is.list(x)) return(map_chr(x, \(v) str_c(format(v), collapse = "/")))
-  as.character(x)
+# pillar-rendered text for a column
+.shaft <- \(x) str_trim(format(pillar_shaft(x), width = 1000))
+
+# pillar text for one cell: scalars plain, wider cells clipped to six values
+.cell_values <- \(v) {
+  if (!length(v)) return("")
+  clipped <- length(v) > 6
+  s       <- .shaft(if (clipped) v[1:6] else v)
+  if (length(s) == 1) return(s)
+  str_c("<", str_c(s, collapse = ", "), if (clipped) ", …", ">")
+}
+
+# cell text via pillar, so every row binds as one character column
+.cell <- \(x) {
+  if (length(dim(x)) > 1) {
+    x <- map(seq_len(nrow(x)), \(i) {
+      v <- vec_slice(x, i)
+      if (is.data.frame(v)) unlist(v, use.names = FALSE) else as.vector(v)
+    })
+  }
+  if (!is.list(x)) return(.shaft(x))
+  map_chr(x, .cell_values)
 }
 
 # positive whole number of rows to show
@@ -39,13 +55,15 @@ f_num <- \(x) {
 }
 
 # number of differences in a kompare object
-.n_diffs <- \(x) nrow(x$schema) + nrow(x$keys) + sum(map_int(x$diffs, nrow))
+.n_diffs <- \(x) nrow(x$schema) +
+  nrow(x$keys) +
+  sum(map_int(x$diffs, nrow))
 
 # render a kompare object as lines
 .format_kompare <- \(x, n = 5) {
-  n <- .check_n(n)
+  n        <- .check_n(n)
   settings <- attr(x, "settings")
-  dims <- attr(x, "dims")
+  dims     <- attr(x, "dims")
   compared <- attr(x, "compared")
   by_label <- if (identical(settings$by, ".rn")) "position" else str_c(settings$by, collapse = ", ")
 
@@ -75,13 +93,13 @@ f_num <- \(x) {
 
   lines <- c(lines, .glue("unmatched keys: {f_num(nrow(x$keys))}"))
   if (nrow(x$keys) > 0) {
-    n_l <- sum(is.na(x$keys$.r))
-    n_r <- sum(is.na(x$keys$.l))
+    n_l                  <- sum(is.na(x$keys$.r))
+    n_r                  <- sum(is.na(x$keys$.l))
     lines[length(lines)] <- .glue(
       "unmatched keys: {f_num(nrow(x$keys))}",
       " ({n_l} in l only, {n_r} in r only)"
     )
-    lines <- c(lines, .table_lines(x$keys, n))
+    lines                <- c(lines, .table_lines(x$keys, n))
     if (nrow(x$keys) > n) {
       lines <- c(lines, cli::col_grey(.glue("  # ... and {f_num(nrow(x$keys) - n)} more")))
     }
@@ -91,18 +109,18 @@ f_num <- \(x) {
   if (length(x$diffs) == 0) {
     lines <- c(lines, "value differences: 0")
   } else {
-    lines <- c(lines, "value differences by type:")
+    lines       <- c(lines, "value differences by type:")
     shown_diffs <- x$diffs |>
       imap(\(d, type) {
         label <- .type_label(d)
         d |>
           head(n) |>
           mutate(!!sym(label) := .env$type, .before = 1) |>
-          mutate(.l = .fmt_cell(.l), .r = .fmt_cell(.r))
+          mutate(.l = .cell(.l), .r = .cell(.r))
       }) |>
       bind_rows()
-    lines <- c(lines, .table_lines(shown_diffs, nrow(shown_diffs)))
-    diff_count <- sum(map_int(x$diffs, nrow))
+    lines       <- c(lines, .table_lines(shown_diffs, nrow(shown_diffs)))
+    diff_count  <- sum(map_int(x$diffs, nrow))
     if (diff_count > nrow(shown_diffs)) {
       lines <- c(lines, cli::col_grey(.glue("  # ... and {f_num(diff_count - nrow(shown_diffs))} more")))
     }
@@ -144,9 +162,11 @@ f_num <- \(x) {
 #'
 #' @importFrom dplyr bind_rows
 #' @importFrom glue glue
+#' @importFrom pillar pillar_shaft
 #' @importFrom stringr str_c str_detect str_remove_all
 #' @importFrom purrr imap map_int
 #' @importFrom utils head capture.output
+#' @importFrom vctrs vec_slice
 #'
 #' @export
 summary.kompare <- \(object, n = 5, ...) {
@@ -179,6 +199,7 @@ format.kompare <- \(x, n = 5, ...) {
 #'
 #' @importFrom dplyr bind_rows
 #' @importFrom generics tidy
+#' @importFrom tibble tibble
 #'
 #' @export
 tidy.kompare <- \(x, ...) {
@@ -186,7 +207,7 @@ tidy.kompare <- \(x, ...) {
   x$diffs |>
     imap(\(d, type) {
       tab <- table(d[["col"]])
-      tibble::tibble(type = type, col = names(tab), diffs = as.integer(tab), n = n)
+      tibble(type = type, col = names(tab), diffs = as.integer(tab), n = n)
     }) |>
     bind_rows()
 }
@@ -199,9 +220,7 @@ tidy.kompare <- \(x, ...) {
 #' @return `TRUE` if nothing differs.
 #'
 #' @export
-as.logical.kompare <- \(x, ...) {
-  nrow(x$schema) == 0 && nrow(x$keys) == 0 && length(x$diffs) == 0
-}
+as.logical.kompare <- \(x, ...) .n_diffs(x) == 0
 
 #' Do two frames match
 #'

@@ -21,6 +21,7 @@ Imports:
     generics,
     glue,
     lubridate,
+    pillar,
     purrr,
     rlang,
     stringr,

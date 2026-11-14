@@ -128,7 +128,7 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' @importFrom stats na.omit
 #' @importFrom utils globalVariables
 #' @importFrom lubridate as_date hour minute second
-#' @importFrom vctrs vec_ptype vec_ptype_abbr vec_ptype_common vec_equal vec_in
+#' @importFrom vctrs vec_ptype vec_ptype_abbr vec_ptype_common vec_equal vec_in vec_slice
 #'
 #' @export
 kompare <- \(
@@ -216,10 +216,10 @@ kompare <- \(
     }
     ok <- map_lgl(by, \(col) {
       try_fetch(
-        {
-          vec_ptype_common(l[[col]], r[[col]])
-          TRUE
-        },
+      {
+        vec_ptype_common(l[[col]], r[[col]])
+        TRUE
+      },
         error = \(cnd) FALSE
       )
     })
@@ -453,11 +453,12 @@ kompare <- \(
       # no pivot, so cost scales with differences rather than cells
       mask |>
         imap(\(m, col) {
-          rows <- if (is.matrix(m)) which(rowSums(m) > 0) else which(m)
+          rows <- which(if (is.null(dim(m))) m else rowSums(m, dims = 1) > 0)
           if (length(rows) == 0) return(NULL)
           nm_l <- str_c(col, "\x1f.l")
           nm_r <- str_c(col, "\x1f.r")
-          take <- \(x) if (is.matrix(x)) x[rows, , drop = FALSE] else x[rows]
+          take <- \(x) vec_slice(x, rows)
+
           bind_cols(
             comp[rows, by, drop = FALSE],
             tibble(
