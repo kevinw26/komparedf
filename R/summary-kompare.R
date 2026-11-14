@@ -1,5 +1,10 @@
 .glue <- \(...) glue(..., .trim = FALSE, .envir = parent.frame())
 
+# count with the locale thousands separator
+f_num <- \(x) {
+  format(x, big.mark = Sys.localeconv()[["thousands_sep"]], scientific = FALSE)
+}
+
 .print_diffs <- \(d) {
   lines <- capture.output(print(d)) |>
     discard(\(x) str_detect(str_remove_all(x, "\x1b\\[[0-9;]*m"), "^\\s*(<|#)"))
@@ -71,24 +76,34 @@ summary.kompare <- \(object, ...) {
     iwalk(counts, \(n, type) sprintf("  %-*s  %d\n", width, type, n) |> cat())
   }
 
-  # note if l and r have different row counts, since this affects how
-  # meaningful the key/diff comparisons are
+  cat("\n")
+  compared <- attr(object, "compared")
+  n_rows <- f_num(compared[["rows"]])
+  n_cols <- f_num(compared[["cols"]])
+  .glue("compared {n_rows} rows and {n_cols} columns\n") |> cat()
+
+  # trailing notes
+  cat("\n")
+  all_match <- as.logical(object)
+  if (all_match) {
+    .glue("{cli::symbol$info} all match\n") |> cat()
+  }
   dims <- attr(object, "dims")
   if (dims[1] != dims[2]) {
-    cat("\n")
-    .glue("{cli::symbol$info} l and r have different lengths ({dims[1]} vs {dims[2]})\n") |>
+    .glue(
+      "{cli::symbol$info} l and r have different lengths",
+      " ({f_num(dims[1])} vs {f_num(dims[2])})\n"
+    ) |>
       crayon::red() |>
       cat()
   }
-
-  cat("\n")
-  compared <- attr(object, "compared")
-  big_mark <- Sys.localeconv()[["thousands_sep"]]
-  .glue(
-    "compared {format(compared[['rows']], big.mark = big_mark, scientific = FALSE)} rows",
-    " and {format(compared[['cols']], big.mark = big_mark, scientific = FALSE)} columns\n"
-  ) |> cat()
-  if (as.logical(object)) "all match\n" |> cat()
+  if (!all_match) {
+    n_diff <- nrow(object$schema) + nrow(object$keys) +
+      sum(map_int(object$diffs, nrow))
+    .glue("{cli::symbol$info} {f_num(n_diff)} differences found\n") |>
+      crayon::red() |>
+      cat()
+  }
 
   invisible(object)
 }

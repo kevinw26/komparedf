@@ -56,9 +56,6 @@ if their types mismatch.}
 \item{.fn}{A function to apply to both data frames before comparing
 (eg \code{\link[dplyr:arrange_all]{dplyr::arrange_all()}}). Executes after column names are forced to
 lower case and renaming, if any, by \code{by}.}
-
-\item{...}{Aliases for older argument names: \code{keys} for \code{by},
-\code{roundDigits} or \code{round} for \code{.round}.}
 }
 \value{
 A \code{kompare} object: a list with three elements, printable via
@@ -93,7 +90,7 @@ that differ in type, or exist in only one data frame, are reported in
 under their original type in \code{schema}.
 \code{POSIXct}/\code{POSIXlt} columns with no time-of-day component (i.e. every
 non-\code{NA} value falls at midnight) are converted to \code{Date} before
-comparison, with a warning identifying the affected column.
+comparison, with a message identifying the affected columns.
 
 If \code{by} is supplied, both \code{l} and \code{r} must have no duplicate rows with
 respect to those columns, or \code{kompare()} will error.

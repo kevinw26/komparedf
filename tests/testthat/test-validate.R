@@ -29,6 +29,22 @@ test_that("repeated by columns say which side", {
   )
 })
 
+test_that("grouped frames are compared ungrouped", {
+  l <- dplyr::group_by(tibble::as_tibble(iris), Species)
+  r <- dplyr::group_by(tibble::as_tibble(iris), Species)
+
+  out <- kompare(l, r)
+
+  expect_true(as.logical(out))
+  expect_false(dplyr::is_grouped_df(validate_frame(l, "l")))
+})
+
+test_that("grouped frames produce no grouping messages", {
+  l <- dplyr::group_by(tibble::as_tibble(iris), Species)
+
+  expect_no_message(kompare(l, l))
+})
+
 test_that("validate_frame raises rlang errors", {
   expect_error(validate_frame(1:3, "l"), class = "rlang_error")
   expect_error(validate_frame(tibble::tibble(Id = 1, id = 2, .name_repair = "minimal"), "l"),

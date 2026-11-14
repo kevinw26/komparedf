@@ -3,10 +3,16 @@ validate_frame <- \(d, name) {
   if (!is.data.frame(d)) {
     abort(glue("{name} must be a data frame, not {class(d)[1]}"))
   }
-  d <- d |> set_names(str_to_lower(names(d)))
+  d <- d |>
+    ungroup() |>
+    set_names(str_to_lower(names(d)))
   dupes <- names(d)[duplicated(names(d))]
   if (length(dupes) > 0) {
-    abort(glue("{name} has duplicate column names after lowercasing: {str_c(unique(dupes), collapse = ', ')}"))
+    cols <- str_c(unique(dupes), collapse = ", ")
+    abort(glue(
+      "{name} has duplicate column names after lowercasing: {cols}",
+      name = name, cols = cols
+    ))
   }
   d
 }
@@ -84,7 +90,7 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' under their original type in `schema`.
 #' `POSIXct`/`POSIXlt` columns with no time-of-day component (i.e. every
 #' non-`NA` value falls at midnight) are converted to `Date` before
-#' comparison, with a warning identifying the affected column.
+#' comparison, with a message identifying the affected columns.
 #'
 #' If `by` is supplied, both `l` and `r` must have no duplicate rows with
 #' respect to those columns, or `kompare()` will error.
@@ -110,8 +116,8 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' kompare(l, r, join_by(id), .raise_error = TRUE)
 #' }
 #'
-#' @importFrom rlang abort warn expr sym arg_match inherits_any
-#' @importFrom dplyr rename_with select all_of mutate row_number full_join inner_join filter distinct pull rename join_by cur_column
+#' @importFrom rlang abort warn inform expr sym arg_match inherits_any
+#' @importFrom dplyr rename_with select all_of mutate row_number full_join inner_join filter distinct pull rename join_by cur_column ungroup
 #' @importFrom tidyr pivot_longer drop_na
 #' @importFrom purrr map map_chr map2 set_names discard
 #' @importFrom stringr str_to_lower str_c str_trim
@@ -177,7 +183,7 @@ kompare <- \(
     names()
   cols_to_date <- union(date_cols(l), date_cols(r))
   if (length(cols_to_date) > 0) {
-    warn(glue(
+    inform(glue(
       "columns {str_c(cols_to_date, collapse = ', ')} have no time component and were converted ",
       "to lubridate date"))
   }

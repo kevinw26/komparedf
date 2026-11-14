@@ -119,7 +119,7 @@ test_that("validate_frame returns the frame with lower-case names", {
   expect_equal(nrow(out), 3)
 })
 
-test_that("kompare warns once for all date columns with no time component", {
+test_that("kompare messages once for all date columns with no time component", {
   l <- iris_base |>
     mutate(
       obs_dt = as.POSIXct.Date(as_date("2010-01-01") + 0:(n() - 1)),
@@ -127,10 +127,10 @@ test_that("kompare warns once for all date columns with no time component", {
     )
   r <- l |> mutate(obs_dt = obs_dt + 86400)
 
-  ws <- capture_warnings(kompare(l, r, keys = "id"))
+  msgs <- capture_messages(kompare(l, r, keys = "id"))
 
-  expect_length(ws, 1)
-  expect_match(ws, "obs_dt, upd_dt")
+  expect_length(msgs, 1)
+  expect_match(msgs, "obs_dt, upd_dt")
 })
 
 test_that("by accepts a named vector for asymmetric column names", {
@@ -160,6 +160,24 @@ test_that("summary reports compared cells and all match", {
 
   expect_true(any(str_detect(txt, "compared 150 rows and 6 columns")))
   expect_true(any(str_detect(txt, "all match")))
+})
+
+test_that("summary counts differences", {
+  l <- tibble(id = 1:2, x = c(1, 2))
+  r <- l |> mutate(x = x + 1)
+
+  txt <- capture.output(summary(kompare(l, r, by = "id")))
+
+  expect_true(any(str_detect(txt, "2 differences found")))
+})
+
+test_that("summary notes different input lengths", {
+  l <- tibble(id = 1:3, x = 1:3)
+  r <- tibble(id = 1:2, x = 1:2)
+
+  txt <- capture.output(summary(kompare(l, r, by = "id")))
+
+  expect_true(any(str_detect(txt, "different lengths \\(3 vs 2\\)")))
 })
 
 test_that("check_cells warns when a comparison is large", {
