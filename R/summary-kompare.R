@@ -75,8 +75,7 @@ f_num <- \(x) {
   shown <- c(
     if (settings$digits != 4) .glue("digits = {settings$digits}"),
     if (settings$strings != "strict") .glue("strings = {settings$strings}"),
-    if (settings$factors != "as_strings") .glue("factors = {settings$factors}"),
-    if (length(settings$ignore) > 0) .glue("ignore = {str_c(settings$ignore, collapse = ', ')}")
+    if (settings$factors != "as_strings") .glue("factors = {settings$factors}")
   )
   if (length(shown) > 0) {
     lines <- c(lines, cli::col_grey(.glue("# settings: {str_c(shown, collapse = ', ')}")))

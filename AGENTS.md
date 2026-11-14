@@ -14,6 +14,12 @@
 - rlang for tidy eval (`sym()`, `enquo()`, `!!!`, `set_names()`), not `get()`/`eval(parse())`
 - stringr for all string work, not `gsub`/`substr`/`regexpr`
 
+## messages
+
+- error, warning, and inform messages start lower case
+- join clauses with semicolons
+- no terminal full stop
+
 ## comments
 
 - lowercase, terse, sentence fragments, no full stops
@@ -25,3 +31,6 @@
 - don't refactor, reformat, or fix unrelated code in passing
 - flag other issues in the reply, don't fix them
 - don't add dependencies, files, or config without asking
+- however when there is an often used base function in tidyverse that does what you are looking to
+  do, feel free to add it
+- try to minimise noise in the git diff

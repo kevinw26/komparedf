@@ -12,27 +12,6 @@ check_names <- \(d, name) {
   invisible(d)
 }
 
-# lower-case names in a tidyselect expression so matching ignores case
-lower_selection <- \(expr) {
-  if (is_symbol(expr)) return(sym(str_to_lower(as_string(expr))))
-  if (is.character(expr)) return(str_to_lower(expr))
-  if (is_call(expr)) return(as.call(map(as.list(expr), lower_selection)))
-  expr
-}
-
-# resolve ignore with tidyselect, lowering selections to match column names
-resolve_ignore_cols <- \(quo, l, r) {
-  cols <- union(names(l), names(r))
-  proxy <- cols |>
-    set_names(cols) |>
-    map(\(col) vec_ptype(l[[col]] %||% r[[col]]))
-  quo <- quo_set_expr(quo, lower_selection(quo_get_expr(quo)))
-  try_fetch(
-    tidyselect::eval_select(quo, proxy, allow_rename = FALSE) |> names(),
-    error = \(cnd) abort("ignore must be a valid tidyselect selection", parent = cnd)
-  )
-}
-
 # check a frame, lower-case its names, reject duplicates the lowercasing creates
 validate_frame <- \(d, name) {
   if (!is.data.frame(d)) {
@@ -44,7 +23,11 @@ validate_frame <- \(d, name) {
   if (ncol(d) == 0) {
     abort(glue("{name} must have at least one column"))
   }
+  if (inherits(d, "data.table")) {
+    warn(glue("{name} is a data table; memory-intensive conversion to tibble"))
+  }
   d <- d |>
+    as_tibble(.name_repair = "minimal") |>
     ungroup() |>
     set_names(str_to_lower(names(d)))
   dupes <- names(d)[duplicated(names(d))]
@@ -84,11 +67,6 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #'   factors; columns whose levels differ in set or order land in `schema`).
 #' @param raise_error Abort with the printed summary on differences. Default
 #'   `FALSE`.
-#' @param ignore Columns skipped in value comparisons, selected with
-#'   [tidyselect::language] syntax: character vectors, bare names, or helpers
-#'   (e.g. `c(price)`, `starts_with("cost")`). Matching ignores case. Columns
-#'   must exist in at least one frame and must not be `by` columns. `NULL`
-#'   (default) ignores nothing.
 #' @param fn Applied to both frames before comparing; its output is ungrouped.
 #'   Default `\(d) d`.
 #' @param ... Not used; must be empty.
@@ -110,30 +88,30 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' also reports matched rows and compared columns.
 #'
 #' @section Error conditions:
-#' With `raise_error = TRUE`, errors of class `kompare_error` carry the
-#' report in `body` and the result in `obj`.
+#' `raise_error = TRUE` gives `kompare_error` with `body` and `obj`.
+#' `kompare_dupes_error` may suggest unique comparison key if quickly found.
 #'
 #' @examples
 #' l <- tibble::tibble(id = 1:3, x = c(1, 2, 3))
 #' r <- tibble::tibble(id = 1:3, x = c(1, 2.5, 3))
 #' kompare(l, r, dplyr::join_by(id))
 #'
-#' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool enquo quo_get_expr quo_set_expr is_symbol is_call as_string try_fetch check_dots_empty check_exclusive env_get_list "%||%"
-#' @importFrom dplyr rename_with select all_of mutate across row_number full_join inner_join bind_rows bind_cols filter distinct pull rename join_by cur_column ungroup where
+#' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool try_fetch check_dots_empty check_exclusive env_get_list
+#' @importFrom dplyr bind_cols bind_rows cur_column distinct filter full_join inner_join join_by mutate pull rename rename_with row_number select slice_max ungroup where across all_of
 #' @importFrom tidyr drop_na
-#' @importFrom purrr map map_chr map_lgl map2 set_names discard imap
+#' @importFrom purrr discard imap keep map map2 map_chr map_int map_lgl reduce set_names
 #' @importFrom stringr str_to_lower str_c str_trim str_split_1 str_detect
 #' @importFrom glue glue
-#' @importFrom tibble tibble
+#' @importFrom tibble as_tibble as_tibble_col tibble
 #' @importFrom stats na.omit
 #' @importFrom utils globalVariables
 #' @importFrom lubridate as_date hour minute second
-#' @importFrom vctrs vec_ptype vec_ptype_abbr vec_ptype_common vec_equal vec_in vec_slice
+#' @importFrom vctrs vec_equal vec_in vec_ptype_abbr vec_ptype_common vec_slice vec_unique_count
 #'
 #' @export
 kompare <- \(
   l, r, by = NULL, digits = 4, strings = "strict", factors = "as_strings",
-  raise_error = FALSE, ignore = NULL, fn = \(d) d,
+  raise_error = FALSE, fn = \(d) d,
   ...,
   keys = NULL, round = NULL, roundDigits = NULL
 ) {
@@ -333,19 +311,22 @@ kompare <- \(
     check_by_types(l, r, by, "fn left by columns with incompatible types in l and r")
   }
 
-  # resolve columns ignored in case insensitive tidyselect
-  ignore <- resolve_ignore_cols(enquo(ignore), l, r)
-
   # assign row number if necessary; check for key duplicates
   has_key_dupes <- \(d) any(d |> select(all_of(by)) |> duplicated())
 
-  format_dupes <- \(d) {
-    k <- d |> select(all_of(by))
-    k <- k[duplicated(k), , drop = FALSE] |> head(3)
-    map_chr(seq_len(nrow(k)), \(i) {
-      str_c(unlist(k[i,], use.names = FALSE), collapse = "/")
-    }) |>
-      str_c(collapse = ", ")
+  abort_dupes <- \(d, side) {
+    found <- try_suggest_kompare_keys(l, r, by)
+    message <- glue(
+      "by {str_c(by, collapse = ', ')} is not distinct in {side}; ",
+      "row-by-row comparison requires distinct keys"
+    )
+    if (!is.null(found)) {
+      cols <- found |>
+        map_chr(\(col) deparse(sym(col), width.cutoff = 500L)) |>
+        str_c(collapse = ", ")
+      message <- glue("{message}; consider join_by({cols})")
+    }
+    abort(message, class = "kompare_dupes_error")
   }
 
   n_cols <- c(ncol(l), ncol(r))
@@ -354,22 +335,8 @@ kompare <- \(
     r <- r |> mutate(.rn = row_number())
     by <- ".rn"
   } else {
-    if (has_key_dupes(l)) {
-      abort(glue(
-        "by {str_c(by, collapse = ', ')} must uniquely identify all rows in l; ",
-        "repeated keys: {format_dupes(l)}"
-      ))
-    }
-    if (has_key_dupes(r)) {
-      abort(glue(
-        "by {str_c(by, collapse = ', ')} must uniquely identify all rows in r; ",
-        "repeated keys: {format_dupes(r)}"
-      ))
-    }
-    ignored_keys <- intersect(ignore, by)
-    if (length(ignored_keys) > 0) {
-      abort(glue("ignore must not include by columns: {str_c(ignored_keys, collapse = ', ')}"))
-    }
+    if (has_key_dupes(l)) abort_dupes(l, "l")
+    if (has_key_dupes(r)) abort_dupes(r, "r")
   }
 
   # find mismatching data types and factors
@@ -396,8 +363,7 @@ kompare <- \(
   # warn if data is very large
   compared_cols <- dt |>
     filter(dt.l == dt.r) |>
-    pull(col) |>
-    setdiff(ignore)
+    pull(col)
   check_cells(l, r, compared_cols)
 
   # construct diffs by type
@@ -420,8 +386,7 @@ kompare <- \(
         dt |>
           filter(dt.l == type & dt.r == type) |>
           pull(col) |>
-          setdiff(by) |>
-          setdiff(ignore)
+          setdiff(by)
       )
       if (length(cols) == 0) return(tibble())
 
@@ -491,11 +456,11 @@ kompare <- \(
     dims = c(nrow(l), nrow(r)),
     compared = c(
       rows = (nrow(l) + nrow(r) - nrow(unmatched)) / 2,
-      cols = length(compared_cols) + length(setdiff(by, ignore)) - (".rn" %in% by)
+      cols = length(compared_cols) + length(by) - (".rn" %in% by)
     ),
     settings = env_get_list(
       environment(),
-      c("by", "digits", "strings", "factors", "ignore", "n_cols")
+      c("by", "digits", "strings", "factors", "n_cols")
     ),
     class = "kompare"
   )

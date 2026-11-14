@@ -12,7 +12,6 @@ kompare(
   strings = "strict",
   factors = "as_strings",
   raise_error = FALSE,
-  ignore = NULL,
   fn = function(d) d,
   ...,
   keys = NULL,
@@ -38,12 +37,6 @@ factors; columns whose levels differ in set or order land in \code{schema}).}
 
 \item{raise_error}{Abort with the printed summary on differences. Default
 \code{FALSE}.}
-
-\item{ignore}{Columns skipped in value comparisons, selected with
-\link[tidyselect:language]{tidyselect::language} syntax: character vectors, bare names, or helpers
-(e.g. \code{c(price)}, \code{starts_with("cost")}). Matching ignores case. Columns
-must exist in at least one frame and must not be \code{by} columns. \code{NULL}
-(default) ignores nothing.}
 
 \item{fn}{Applied to both frames before comparing; its output is ungrouped.
 Default \verb{\\(d) d}.}
@@ -73,8 +66,8 @@ also reports matched rows and compared columns.
 }
 \section{Error conditions}{
 
-With \code{raise_error = TRUE}, errors of class \code{kompare_error} carry the
-report in \code{body} and the result in \code{obj}.
+\code{raise_error = TRUE} gives \code{kompare_error} with \code{body} and \code{obj}.
+\code{kompare_dupes_error} may suggest a key found within 3 seconds.
 }
 
 \examples{

@@ -63,7 +63,6 @@ tidy(out)            # tibble: type, col, diffs (attach generics or broom)
 | `digits`      | `4`           | decimal places for numeric tolerance      |
 | `strings`     | `"strict"`    | `"ignorecase"`, `"trim"`, or joined `_`   |
 | `factors`     | `"as_strings"`| `"as_factors"` flags differing level definitions |
-| `ignore`      | `NULL`        | columns skipped in value comparisons      |
 | `fn`          | `\(d) d`      | applied to both frames before comparing   |
 | `raise_error` | `FALSE`       | abort with the report on differences      |
 

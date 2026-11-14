@@ -38,22 +38,6 @@ test_that("strings = 'strict' compares exactly", {
   expect_length(kompare(l, r, by = "id", strings = "trim_ignorecase")$diffs, 0)
 })
 
-test_that("ignore drops columns from value comparison", {
-  l <- tibble::tibble(id = 1:2, x = c(1, 2), updated = c(1, 2))
-  r <- l |> mutate(updated = updated + 1)
-
-  expect_equal(nrow(kompare(l, r, by = "id")$diffs$dbl), 2)
-  expect_length(kompare(l, r, by = "id", ignore = "updated")$diffs, 0)
-  expect_equal(attr(kompare(l, r, by = "id", ignore = "updated"), "compared")[["cols"]], 2)
-  expect_error(
-    kompare(l, r, by = "id", ignore = c("id", "updated")),
-    "ignore must not include by columns: id"
-  )
-
-  retyped <- l |> mutate(updated = as.character(updated))
-  expect_equal(nrow(kompare(l, retyped, by = "id", ignore = "updated")$schema), 1)
-})
-
 test_that("fn is applied to both sides before comparing", {
   l <- tibble::tibble(id = 1:3, x = c(3, 1, 2))
   r <- tibble::tibble(id = 3:1, x = c(2, 1, 3))
@@ -108,35 +92,6 @@ test_that("raise_error must be a logical", {
   expect_error(kompare(l, l, by = "id", raise_error = "yes"), "raise_error must be")
 })
 
-test_that("ignore names columns that exist in at least one frame", {
-  l <- tibble::tibble(id = 1:2, Updated = c(1, 2))
-  r <- l |> mutate(Updated = Updated + 1)
-
-  expect_error(kompare(l, r, by = "id", ignore = "nope"),
-               "doesn't exist")
-  expect_no_error(
-    kompare(tibble::tibble(id = 1, x = 1), tibble::tibble(id = 1, y = 1), by = "id", ignore = "x")
-  )
-  expect_length(kompare(l, r, by = "id")$diffs, 1)
-  expect_length(kompare(l, r, by = "id", ignore = "Updated")$diffs, 0)
-})
-
-test_that("ignore accepts bare column names", {
-  l <- tibble::tibble(id = 1:2, price = c(1, 2))
-  r <- l |> mutate(price = price + 1)
-  cols <- "price"
-
-  expect_length(kompare(l, r, by = "id")$diffs, 1)
-  expect_length(kompare(l, r, by = "id", ignore = c(price))$diffs, 0)
-  expect_length(kompare(l, r, by = "id", ignore = price)$diffs, 0)
-  expect_length(kompare(l, r, by = "id", ignore = all_of(cols))$diffs, 0)
-  expect_length(kompare(l, r, by = "id", ignore = c(Price))$diffs, 0)
-  expect_length(kompare(l, r, by = "id", ignore = starts_with("pri"))$diffs, 0)
-  expect_error(kompare(l, r, by = "id", ignore = c("price", NA)), "valid tidyselect")
-  expect_error(kompare(l, r, by = "id", ignore = c(price, NA)), "valid tidyselect")
-  expect_error(kompare(l, r, by = "id", ignore = NA), "valid tidyselect")
-})
-
 test_that("fn must be a function returning a frame with the by columns", {
   l <- tibble::tibble(id = 1, x = 1)
 
@@ -166,13 +121,4 @@ test_that("print requires a positive integer n", {
   expect_no_error(capture.output(print(out, n = 2)))
 })
 
-test_that("type predicates in ignore see real column types", {
-  l <- tibble::tibble(id = c("a", "b"), n = c(1, 2), s = c("a", "b"))
-  r <- l |> mutate(n = n + 1, s = c("a", "z"))
 
-  out <- kompare(l, r, by = "id", ignore = dplyr::where(is.numeric))
-
-  expect_equal(attr(out, "settings")$ignore, "n")
-  expect_null(out$diffs$dbl)
-  expect_equal(nrow(out$diffs$chr), 1)
-})

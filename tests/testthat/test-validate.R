@@ -15,13 +15,6 @@ test_that("validate_frame errors name what is wrong", {
   )
 })
 
-test_that("duplicate key errors show the repeated keys", {
-  l <- tibble::tibble(id = c(1, 1, 2, 2), x = 1:4)
-  r <- tibble::tibble(id = 1, x = 1)
-
-  expect_error(kompare(l, r, by = "id"), "repeated keys: 1, 2")
-})
-
 test_that("repeated by columns say which side", {
   expect_error(
     kompare(tibble::tibble(id = 1), tibble::tibble(id = 1), by = c(id = "a", id = "b")),
@@ -59,6 +52,32 @@ test_that("validate_frame lower-cases names without touching values", {
   expect_equal(names(out), c("id", "value"))
   expect_equal(out$id, d$Id)
   expect_equal(out$value, d$Value)
+  expect_s3_class(out, "tbl_df")
+})
+
+test_that("base data frames are converted to tibbles", {
+  out <- validate_frame(data.frame(Id = 1:2, x = 1:2), "l")
+
+  expect_s3_class(out, "tbl_df")
+  expect_equal(names(out), c("id", "x"))
+})
+
+test_that("data tables warn and are converted to tibbles", {
+  dt <- structure(data.frame(id = 1:2, x = 1:2), class = c("data.table", "data.frame"))
+
+  expect_warning(out <- validate_frame(dt, "l"), "l is a data table")
+  expect_s3_class(out, "tbl_df")
+})
+
+test_that("base data frames compare with a single key", {
+  l <- data.frame(id = 1:2, x = c(1, 2))
+  r <- data.frame(id = 1:2, x = c(1, 3))
+
+  out <- kompare(l, r, by = "id")
+
+  expect_equal(nrow(out$diffs$dbl), 1)
+  expect_true(as.logical(kompare(l, l, by = "id")))
+  expect_true(as.logical(kompare(l, l)))
 })
 
 test_that("validate_frame rejects names that collide after lowercasing", {
