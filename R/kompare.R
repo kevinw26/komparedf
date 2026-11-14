@@ -216,10 +216,10 @@ kompare <- \(
     }
     ok <- map_lgl(by, \(col) {
       try_fetch(
-      {
-        vec_ptype_common(l[[col]], r[[col]])
-        TRUE
-      },
+        {
+          vec_ptype_common(l[[col]], r[[col]])
+          TRUE
+        },
         error = \(cnd) FALSE
       )
     })
