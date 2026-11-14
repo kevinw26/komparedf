@@ -48,7 +48,7 @@ test_that("grouped frames produce no grouping messages", {
 test_that("validate_frame raises rlang errors", {
   expect_error(validate_frame(1:3, "l"), class = "rlang_error")
   expect_error(validate_frame(tibble::tibble(Id = 1, id = 2, .name_repair = "minimal"), "l"),
-    class = "rlang_error"
+               class = "rlang_error"
   )
 })
 
@@ -87,9 +87,9 @@ test_that("reserved column names are rejected", {
 
 test_that("by columns must exist on the correct side", {
   expect_error(kompare(tibble::tibble(id = 1), tibble::tibble(x = 1), by = "id"),
-    "missing from r: id")
+               "missing from r: id")
   expect_error(kompare(tibble::tibble(x = 1), tibble::tibble(id = 1), by = "id"),
-    "missing from l: id")
+               "missing from l: id")
 })
 
 test_that("by must use equality conditions only", {
@@ -100,7 +100,7 @@ test_that("by must use equality conditions only", {
   expect_error(kompare(l, r, by = join_by(a >= b)), "equality conditions")
   expect_error(kompare(l, r, by = join_by(closest(a >= b))), "equality conditions")
   expect_error(kompare(tibble::tibble(a = 1), bc, by = join_by(between(a, b, c))),
-    "equality conditions")
+               "equality conditions")
 })
 
 test_that("by columns must have compatible types", {
@@ -163,7 +163,7 @@ test_that("dots reject unknown names and alias conflicts", {
 test_that("fn output is re-validated for emptiness", {
   l <- tibble::tibble(id = 1, x = 1)
 
-  expect_error(kompare(l, l, fn = \(d) d[0, ]), "must not be empty")
+  expect_error(kompare(l, l, fn = \(d) d[0,]), "must not be empty")
   expect_error(kompare(l, l, fn = \(d) d[, 0]), "at least one column")
 })
 

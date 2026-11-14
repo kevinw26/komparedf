@@ -27,8 +27,12 @@ test_that("strings = 'strict' compares exactly", {
 
   expect_equal(nrow(kompare(l, r, by = "id")$diffs$chr), 1)
   # each flag alone still differs
-  expect_equal(nrow(kompare(l, r, by = "id", strings = "ignorecase")$diffs$chr), 1)
-  expect_equal(nrow(kompare(l, r, by = "id", strings = "trim")$diffs$chr), 1)
+  expect_equal(nrow(kompare(l, r, by = "id", strings = "ignorecase")$
+                      diffs$
+                      chr), 1)
+  expect_equal(nrow(kompare(l, r, by = "id", strings = "trim")$
+                      diffs$
+                      chr), 1)
   # combined, in any order, matches
   expect_length(kompare(l, r, by = "id", strings = "ignorecase_trim")$diffs, 0)
   expect_length(kompare(l, r, by = "id", strings = "trim_ignorecase")$diffs, 0)
@@ -109,7 +113,7 @@ test_that("ignore names columns that exist in at least one frame", {
   r <- l |> mutate(Updated = Updated + 1)
 
   expect_error(kompare(l, r, by = "id", ignore = "nope"),
-    "doesn't exist")
+               "doesn't exist")
   expect_no_error(
     kompare(tibble::tibble(id = 1, x = 1), tibble::tibble(id = 1, y = 1), by = "id", ignore = "x")
   )

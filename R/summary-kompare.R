@@ -21,7 +21,7 @@ f_num <- \(x) {
 .cell_values <- \(v) {
   if (!length(v)) return("")
   clipped <- length(v) > 6
-  s       <- .shaft(if (clipped) v[1:6] else v)
+  s <- .shaft(if (clipped) v[1:6] else v)
   if (length(s) == 1) return(s)
   str_c("<", str_c(s, collapse = ", "), if (clipped) ", …", ">")
 }
@@ -61,9 +61,9 @@ f_num <- \(x) {
 
 # render a kompare object as lines
 .format_kompare <- \(x, n = 5) {
-  n        <- .check_n(n)
+  n <- .check_n(n)
   settings <- attr(x, "settings")
-  dims     <- attr(x, "dims")
+  dims <- attr(x, "dims")
   compared <- attr(x, "compared")
   by_label <- if (identical(settings$by, ".rn")) "position" else str_c(settings$by, collapse = ", ")
 
@@ -93,13 +93,13 @@ f_num <- \(x) {
 
   lines <- c(lines, .glue("unmatched keys: {f_num(nrow(x$keys))}"))
   if (nrow(x$keys) > 0) {
-    n_l                  <- sum(is.na(x$keys$.r))
-    n_r                  <- sum(is.na(x$keys$.l))
+    n_l <- sum(is.na(x$keys$.r))
+    n_r <- sum(is.na(x$keys$.l))
     lines[length(lines)] <- .glue(
       "unmatched keys: {f_num(nrow(x$keys))}",
       " ({n_l} in l only, {n_r} in r only)"
     )
-    lines                <- c(lines, .table_lines(x$keys, n))
+    lines <- c(lines, .table_lines(x$keys, n))
     if (nrow(x$keys) > n) {
       lines <- c(lines, cli::col_grey(.glue("  # ... and {f_num(nrow(x$keys) - n)} more")))
     }
@@ -109,7 +109,7 @@ f_num <- \(x) {
   if (length(x$diffs) == 0) {
     lines <- c(lines, "value differences: 0")
   } else {
-    lines       <- c(lines, "value differences by type:")
+    lines <- c(lines, "value differences by type:")
     shown_diffs <- x$diffs |>
       imap(\(d, type) {
         label <- .type_label(d)
@@ -119,8 +119,8 @@ f_num <- \(x) {
           mutate(.l = .cell(.l), .r = .cell(.r))
       }) |>
       bind_rows()
-    lines       <- c(lines, .table_lines(shown_diffs, nrow(shown_diffs)))
-    diff_count  <- sum(map_int(x$diffs, nrow))
+    lines <- c(lines, .table_lines(shown_diffs, nrow(shown_diffs)))
+    diff_count <- sum(map_int(x$diffs, nrow))
     if (diff_count > nrow(shown_diffs)) {
       lines <- c(lines, cli::col_grey(.glue("  # ... and {f_num(diff_count - nrow(shown_diffs))} more")))
     }

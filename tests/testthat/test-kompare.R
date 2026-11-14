@@ -22,7 +22,7 @@ test_that("omission of join_by defaults to positional comparison", {
 
   # digits = 0 rounds to nearest 1, so 12 != 14
   expect_length(kompare(l, r, digits = 0)$diffs, 1)
-  
+
   # digits = -1 rounds to nearest 10, so 12 == 10 and 14 == 10
   expect_length(kompare(l, r, digits = -1)$diffs, 0)
 })
@@ -153,7 +153,9 @@ test_that("by accepts a named vector for asymmetric column names", {
   out <- kompare(l, r, by = c(id = "ident"))
 
   expect_equal(nrow(out$keys), 0)
-  expect_equal(out$diffs$dbl |> filter(col == "sepal.length") |> pull(id), 1)
+  expect_equal(out$diffs$dbl |>
+                 filter(col == "sepal.length") |>
+                 pull(id), 1)
 })
 
 test_that("keys, roundDigits, and round work as aliases", {
@@ -255,7 +257,7 @@ test_that("matrix and array columns compare and print as row cells", {
   # wide row cells are clipped rather than printed in full
   wide <- matrix(1, 2, 10)
   wide_r <- wide
-  wide_r[2, ] <- 2
+  wide_r[2,] <- 2
   wide_txt <- capture.output(print(kompare(
     tibble(id = 1:2, x = wide), tibble(id = 1:2, x = wide_r),
     by = "id"

@@ -22,11 +22,11 @@ lower_selection <- \(expr) {
 
 # resolve ignore with tidyselect, lowering selections to match column names
 resolve_ignore_cols <- \(quo, l, r) {
-  cols  <- union(names(l), names(r))
+  cols <- union(names(l), names(r))
   proxy <- cols |>
     set_names(cols) |>
     map(\(col) vec_ptype(l[[col]] %||% r[[col]]))
-  quo   <- quo_set_expr(quo, lower_selection(quo_get_expr(quo)))
+  quo <- quo_set_expr(quo, lower_selection(quo_get_expr(quo)))
   try_fetch(
     tidyselect::eval_select(quo, proxy, allow_rename = FALSE) |> names(),
     error = \(cnd) abort("ignore must be a valid tidyselect selection", parent = cnd)
@@ -44,7 +44,7 @@ validate_frame <- \(d, name) {
   if (ncol(d) == 0) {
     abort(glue("{name} must have at least one column"))
   }
-  d     <- d |>
+  d <- d |>
     ungroup() |>
     set_names(str_to_lower(names(d)))
   dupes <- names(d)[duplicated(names(d))]
@@ -171,7 +171,7 @@ kompare <- \(
     abort(glue('strings must be "strict" or a combination of ignorecase and trim, not "{strings}"'))
   }
   sf_ignorecase <- "ignorecase" %in% sf
-  sf_trim       <- "trim" %in% sf
+  sf_trim <- "trim" %in% sf
 
   # validate data frame inputs
   l <- validate_frame(l, "l")
@@ -194,7 +194,7 @@ kompare <- \(
       repeats <- x[duplicated(x)] |>
         unique() |>
         str_c(collapse = ", ")
-      where   <- if (is.null(side)) "" else glue(" on the {side} side")
+      where <- if (is.null(side)) "" else glue(" on the {side} side")
       abort(glue("by repeats a column{where}: {repeats}"))
     }
   }
@@ -259,8 +259,8 @@ kompare <- \(
       conditions <- str_c(unique(by$condition), collapse = ", ")
       abort(glue("by must contain only equality conditions (==), not: {conditions}"))
     }
-    by_l     <- by$x |> str_to_lower()
-    by_r     <- by$y |> str_to_lower()
+    by_l <- by$x |> str_to_lower()
+    by_r <- by$y |> str_to_lower()
     reserved <- intersect(union(by_l, by_r), c("col", ".l", ".r"))
     if (length(reserved) > 0) {
       abort(glue("by cannot use reserved column names: {str_c(reserved, collapse = ', ')}"))
@@ -279,7 +279,7 @@ kompare <- \(
       ))
     }
 
-    r  <- r |> rename(!!!set_names(by_r, by_l))
+    r <- r |> rename(!!!set_names(by_r, by_l))
     by <- by_l
   }
 
@@ -350,8 +350,8 @@ kompare <- \(
 
   n_cols <- c(ncol(l), ncol(r))
   if (is.null(by)) {
-    l  <- l |> mutate(.rn = row_number())
-    r  <- r |> mutate(.rn = row_number())
+    l <- l |> mutate(.rn = row_number())
+    r <- r |> mutate(.rn = row_number())
     by <- ".rn"
   } else {
     if (has_key_dupes(l)) {
@@ -414,7 +414,7 @@ kompare <- \(
                        distinct(dt.l) |>
                        drop_na() |>
                        pull())
-  diffs   <- d_types |>
+  diffs <- d_types |>
     map(\(type) {
       cols <- na.omit(
         dt |>
@@ -463,8 +463,8 @@ kompare <- \(
             comp[rows, by, drop = FALSE],
             tibble(
               col = col,
-              .l  = take(comp[[nm_l]]),
-              .r  = take(comp[[nm_r]])
+              .l = take(comp[[nm_l]]),
+              .r = take(comp[[nm_r]])
             )
           )
         }) |>
@@ -474,8 +474,8 @@ kompare <- \(
     discard(\(d) nrow(d) == 0)
 
   # rows present on only one side
-  l_keys    <- l |> select(all_of(by))
-  r_keys    <- r |> select(all_of(by))
+  l_keys <- l |> select(all_of(by))
+  r_keys <- r |> select(all_of(by))
   unmatched <- bind_rows(
     l_keys[!vec_in(l_keys, r_keys),] |> mutate(.l = TRUE, .r = NA),
     r_keys[!vec_in(r_keys, l_keys),] |> mutate(.l = NA, .r = TRUE)
@@ -485,10 +485,10 @@ kompare <- \(
   summ <- structure(
     list(
       "schema" = dt |> filter(is.na(dt.l) | is.na(dt.r) | dt.l != dt.r),
-      "keys"   = unmatched,
-      "diffs"  = diffs
+      "keys" = unmatched,
+      "diffs" = diffs
     ),
-    dims     = c(nrow(l), nrow(r)),
+    dims = c(nrow(l), nrow(r)),
     compared = c(
       rows = (nrow(l) + nrow(r) - nrow(unmatched)) / 2,
       cols = length(compared_cols) + length(setdiff(by, ignore)) - (".rn" %in% by)
@@ -497,16 +497,16 @@ kompare <- \(
       environment(),
       c("by", "digits", "strings", "factors", "ignore", "n_cols")
     ),
-    class    = "kompare"
+    class = "kompare"
   )
 
   if (!is_equal(summ) && raise_error) {
     abort(
       "kompare found differences between l and r",
       class = "kompare_error",
-      obj   = summ,
-      body  = .format_kompare(summ) |> str_c(collapse = "\n"),
-      call  = NULL
+      obj = summ,
+      body = .format_kompare(summ) |> str_c(collapse = "\n"),
+      call = NULL
     )
   }
   return(summ)
