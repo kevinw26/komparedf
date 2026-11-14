@@ -103,6 +103,34 @@ test_that("by must use equality conditions only", {
     "equality conditions")
 })
 
+test_that("by columns must have compatible types", {
+  # character vs double
+  expect_error(
+    kompare(tibble::tibble(id = "1"), tibble::tibble(id = 1), by = "id"),
+    "compatible types in l and r: id"
+  )
+
+  # report only the offending key
+  expect_error(
+    kompare(
+      tibble::tibble(id = 1L, grp = "a"),
+      tibble::tibble(id = 1, grp = 1),
+      by = c("id", "grp")
+    ),
+    "compatible types in l and r: grp"
+  )
+
+  # integer vs double
+  expect_true(as.logical(
+    kompare(tibble::tibble(id = 1L), tibble::tibble(id = 1), by = "id")
+  ))
+
+  # factor vs character
+  expect_true(as.logical(
+    kompare(tibble::tibble(id = factor("a")), tibble::tibble(id = "a"), by = "id")
+  ))
+})
+
 test_that("by rejects unsupported specifications", {
   l <- tibble::tibble(id = 1)
 

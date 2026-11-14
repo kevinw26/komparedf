@@ -52,7 +52,7 @@ validate_frame <- \(d, name) {
 check_cells <- \(l, r, cols, limit = 10e6) {
   cells <- max(nrow(l), nrow(r)) * length(cols)
   if (cells > limit) {
-    warn(glue("about {format(cells, big.mark = ',', scientific = FALSE)} cells to compare, may be slow"))
+    warn(glue("about {f_num(cells)} cells to compare, may be slow"))
   }
   invisible(cells)
 }
@@ -101,17 +101,17 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' r <- tibble::tibble(id = 1:3, x = c(1, 2.5, 3))
 #' kompare(l, r, dplyr::join_by(id))
 #'
-#' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool enquo quo_get_expr quo_set_expr is_symbol is_call as_string
-#' @importFrom dplyr rename_with select all_of mutate across row_number full_join inner_join filter distinct pull rename join_by cur_column ungroup where
+#' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool enquo quo_get_expr quo_set_expr is_symbol is_call as_string try_fetch dots_list
+#' @importFrom dplyr rename_with select all_of mutate across row_number full_join inner_join bind_rows filter distinct pull rename join_by cur_column ungroup where
 #' @importFrom tidyr pivot_longer drop_na
-#' @importFrom purrr map map_chr map2 set_names discard
+#' @importFrom purrr map map_chr map_lgl map2 set_names discard
 #' @importFrom stringr str_to_lower str_c str_trim str_split_1 str_detect
 #' @importFrom glue glue
 #' @importFrom tibble tibble
 #' @importFrom stats na.omit
 #' @importFrom utils globalVariables
 #' @importFrom lubridate as_date hour minute second
-#' @importFrom vctrs vec_ptype_abbr vec_equal
+#' @importFrom vctrs vec_ptype_abbr vec_ptype_common vec_equal vec_in
 #'
 #' @export
 kompare <- \(
@@ -119,13 +119,13 @@ kompare <- \(
   raise_error = FALSE, ignore = NULL, fn = \(d) d, ...
 ) {
   # aliases from dots: keys -> by; roundDigits, round -> digits
-  dots <- list(...)
+  dots <- dots_list(...)
   if (!is.null(dots$keys)) by <- dots$keys
   if (!is.null(dots$roundDigits)) digits <- dots$roundDigits
   if (!is.null(dots$round)) digits <- dots$round
 
   # arg validation and parsing
-  if (!is.numeric(digits) || !is_scalar_integerish(digits) || !is.finite(digits)) {
+  if (!is_scalar_integerish(digits) || !is.finite(digits)) {
     abort("digits must be a single integer")
   }
   digits <- as.integer(digits)
@@ -202,6 +202,23 @@ kompare <- \(
       abort(glue("by columns missing from {side}: {str_c(missing, collapse = ', ')}"))
     }
   }
+  check_by_types <- \(l, r, by) {
+    ok <- map_lgl(by, \(col) {
+      try_fetch(
+        {
+          vec_ptype_common(l[[col]], r[[col]])
+          TRUE
+        },
+        error = \(cnd) FALSE
+      )
+    })
+    if (!all(ok)) {
+      abort(glue(
+        "by columns must have compatible types in l and r: ",
+        "{str_c(by[!ok], collapse = ', ')}"
+      ))
+    }
+  }
   if (!is.null(by) && !is.character(by) && !inherits_any(by, "dplyr_join_by")) {
     abort("by must be NULL, a character vector, or a dplyr::join_by() object")
   }
@@ -270,7 +287,10 @@ kompare <- \(
   }
   l <- apply_fn(l, "l")
   r <- apply_fn(r, "r")
-  n_cols <- c(ncol(l), ncol(r))
+  if (!is.null(by)) {
+    # fn can change key types; validate afterwards
+    check_by_types(l, r, by)
+  }
 
   # resolve columns ignored in case insensitive tidyselect
   ignore <- resolve_ignore_cols(enquo(ignore), l, r)
@@ -285,6 +305,8 @@ kompare <- \(
     }) |>
       str_c(collapse = ", ")
   }
+
+  n_cols <- c(ncol(l), ncol(r))
   if (is.null(by)) {
     l <- l |> mutate(.rn = row_number())
     r <- r |> mutate(.rn = row_number())
@@ -361,12 +383,12 @@ kompare <- \(
     discard(\(d) nrow(d) == 0)
 
   # rows present on only one side
-  unmatched <- full_join(
-    l |> select(all_of(by)) |> mutate(.l = TRUE),
-    r |> select(all_of(by)) |> mutate(.r = TRUE),
-    by = by
-  ) |>
-    filter(is.na(.l) | is.na(.r))
+  l_keys <- l |> select(all_of(by))
+  r_keys <- r |> select(all_of(by))
+  unmatched <- bind_rows(
+    l_keys[!vec_in(l_keys, r_keys), ] |> mutate(.l = TRUE, .r = NA),
+    r_keys[!vec_in(r_keys, l_keys), ] |> mutate(.l = NA, .r = TRUE)
+  )
 
   # make summary
   summ <- structure(

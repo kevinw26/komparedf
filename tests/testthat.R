@@ -7,6 +7,6 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
-library(df.kompare)
+library(komparedf)
 
-test_check("df.kompare")
+test_check("komparedf")

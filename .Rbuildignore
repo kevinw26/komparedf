@@ -3,5 +3,6 @@
 ^LICENSE\.md$
 ^\.idea$
 ^AGENTS\.md$
-^df\.kompare_.*\.tar\.gz$
-^df\.kompare\.Rcheck$
+^bench$
+^komparedf_.*\.tar\.gz$
+^komparedf\.Rcheck$

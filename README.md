@@ -12,7 +12,7 @@ devtools::install_github("kevinw26/komparedf")
 ## Use
 
 ```r
-library(df.kompare)
+library(komparedf)
 library(dplyr)
 
 l <- tibble(id = 1:3, price = c(10, 20, 30))

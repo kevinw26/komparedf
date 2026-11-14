@@ -24,7 +24,7 @@ f_num <- \(x) {
 
 # positive whole number of rows to show
 .check_n <- \(n) {
-  if (!is.numeric(n) || !is_scalar_integerish(n) || !is.finite(n) || n < 1) {
+  if (!is_scalar_integerish(n) || !is.finite(n) || n < 1) {
     abort("n must be a positive integer")
   }
   as.integer(n)
