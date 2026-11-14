@@ -6,11 +6,11 @@
 \alias{format.kompare}
 \title{Summarize a kompare object}
 \usage{
-\method{summary}{kompare}(object, ...)
+\method{summary}{kompare}(object, n = 5, ...)
 
-\method{print}{kompare}(x, ...)
+\method{print}{kompare}(x, n = 5, ...)
 
-\method{format}{kompare}(x, ...)
+\method{format}{kompare}(x, n = 5, ...)
 }
 \arguments{
 \item{object}{A \code{kompare} object.}

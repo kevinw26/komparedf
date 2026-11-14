@@ -62,7 +62,7 @@ tidy(out)            # tibble: type, col, diffs (attach generics or broom)
 |---------------|---------------|-------------------------------------------|
 | `digits`      | `4`           | decimal places for numeric tolerance      |
 | `strings`     | `"strict"`    | `"loose"` ignores case and outer spaces   |
-| `factors`     | `"as_strings"`| `"as_factors"` unions levels first        |
+| `factors`     | `"as_strings"`| `"as_factors"` flags differing level definitions |
 | `ignore`      | `NULL`        | columns skipped in value comparisons      |
 | `fn`          | `\(d) d`      | applied to both frames before comparing   |
 | `raise_error` | `FALSE`       | abort with the report on differences      |
@@ -78,6 +78,7 @@ Parameter names from `rCompare` – eg `keys`, `roundDigits`, and `round` – al
 
 - Column names are matched case-insensitively
 - Only columns sharing a name and type are compared for values; anything else
-  lands in `schema`
+  lands in `schema` — including factor columns whose levels differ when
+  `factors = "as_factors"`
 - `POSIXct` columns sitting at midnight are compared as `Date`, with a message
 - `by` columns must be unique on each side

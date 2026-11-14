@@ -37,8 +37,8 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' @param digits Decimal places for numeric tolerance. Default `4`.
 #' @param strings `"strict"` (default) or `"loose"` (lowercase and trim
 #'   before comparing).
-#' @param factors `"as_strings"` (default) or `"as_factors"` (levels unioned
-#'   across both sides before comparing).
+#' @param factors `"as_strings"` (default) or `"as_factors"` (compared as
+#'   factors; columns whose levels differ in set or order land in `schema`).
 #' @param raise_error Abort with the printed summary on differences. Default
 #'   `FALSE`.
 #' @param ignore Columns skipped in value comparisons. Default `NULL`.
@@ -51,9 +51,15 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #'
 #' @details
 #' Names are matched case-insensitively; only columns sharing name and type
-#' are compared for values. `POSIXct` columns at midnight become `Date`, with
-#' a message. `by` columns must be unique on each side. `print()` also
-#' reports matched rows and compared columns.
+#' are compared for values. With `factors = "as_factors"`, factor columns
+#' whose levels differ in set or order land in `schema`, with their level
+#' definitions shown. `POSIXct` columns at midnight become `Date`, with a
+#' message. `by` columns must be unique on each side. `print()` also reports
+#' matched rows and compared columns.
+#'
+#' @section Error conditions:
+#' With `raise_error = TRUE`, errors of class `kompare_error` carry the
+#' report in `body` and the result in `obj`.
 #'
 #' @examples
 #' l <- tibble::tibble(id = 1:3, x = c(1, 2, 3))
@@ -190,14 +196,25 @@ kompare <- \(
       ))
     }
   }
+
+  # find mismatching data types and factors
+  lvl_mismatch <- if (factors == "as_factors") {
+    l |> select(where(is.factor)) |> names() |>
+      intersect(r |> select(where(is.factor)) |> names()) |>
+      discard(\(col) identical(levels(l[[col]]), levels(r[[col]])))
+  } else character()
+  col_type <- \(d, col) {
+    tag <- if (col %in% lvl_mismatch) str_c("[", str_c(levels(d[[col]]), collapse = ","), "]") else ""
+    str_c(vec_ptype_abbr(d[[col]]), tag)
+  }
   dt <- full_join(
-    tibble(col = names(l), dt.l = map_chr(l, \(x) vec_ptype_abbr(x))),
-    tibble(col = names(r), dt.r = map_chr(r, \(x) vec_ptype_abbr(x))),
+    tibble(col = names(l), dt.l = map_chr(names(l), \(col) col_type(l, col))),
+    tibble(col = names(r), dt.r = map_chr(names(r), \(col) col_type(r, col))),
     by = "col"
   ) |>
     filter(!col %in% by)
 
-  # rough cell count from row and column numbers, not the joined data
+  # warn if data is very large
   compared_cols <- dt |> filter(dt.l == dt.r) |> pull(col) |> setdiff(ignore)
   check_cells(l, r, compared_cols)
 
@@ -209,6 +226,7 @@ kompare <- \(
         dt |> filter(dt.l == type & dt.r == type) |> pull(col) |>
           setdiff(by) |> setdiff(ignore)
       )
+      if (length(cols) == 0) return(tibble())
       comp <- inner_join(
         l |> select(all_of(c(by, cols))) |> clean_types(),
         r |> select(all_of(c(by, cols))) |> clean_types(),
@@ -268,7 +286,7 @@ kompare <- \(
     abort(
       "kompare found differences between l and r",
       class = "kompare_error",
-      summary = summ,
+      obj = summ,
       body = .format_kompare(summ) |> str_c(collapse = "\n"),
       call = NULL
     )

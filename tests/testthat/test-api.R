@@ -28,7 +28,7 @@ test_that("raise_error attaches the summary to the condition", {
   cnd <- rlang::catch_cnd(kompare(l, r, by = "id", raise_error = TRUE))
 
   expect_s3_class(cnd, "kompare_error")
-  expect_s3_class(cnd$summary, "kompare")
+  expect_s3_class(cnd$obj, "kompare")
   expect_match(rlang::cnd_message(cnd), "differences found")
 })
 

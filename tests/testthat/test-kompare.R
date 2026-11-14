@@ -211,17 +211,3 @@ test_that("strings and factors are checked against their choices", {
   expect_error(kompare(iris_base, iris_base, strings = "tight"), "must be one of")
   expect_error(kompare(iris_base, iris_base, factors = "character"), "must be one of")
 })
-
-test_that("factors harmonises levels when comparing as factors", {
-  l <- iris_base
-  r <- iris_base
-  levels(r$species) <- c(levels(r$species), "unknown")
-  r$species[1] <- "unknown"
-
-  strings_out <- kompare(l, r, by = "id", factors = "as_strings")
-  factors_out <- kompare(l, r, by = "id", factors = "as_factors")
-
-  expect_equal(nrow(strings_out$diffs$fct), 1)
-  expect_equal(nrow(factors_out$diffs$fct), 1)
-  expect_no_warning(kompare(l, r, by = "id", factors = "as_factors"))
-})

@@ -29,8 +29,8 @@ vector of shared column names, or a named vector (\code{c(l = "r")}). \code{NULL
 \item{strings}{\code{"strict"} (default) or \code{"loose"} (lowercase and trim
 before comparing).}
 
-\item{factors}{\code{"as_strings"} (default) or \code{"as_factors"} (levels unioned
-across both sides before comparing).}
+\item{factors}{\code{"as_strings"} (default) or \code{"as_factors"} (compared as
+factors; columns whose levels differ in set or order land in \code{schema}).}
 
 \item{raise_error}{Abort with the printed summary on differences. Default
 \code{FALSE}.}
@@ -51,10 +51,18 @@ Reports schema, key, and value differences between \code{l} and \code{r}.
 }
 \details{
 Names are matched case-insensitively; only columns sharing name and type
-are compared for values. \code{POSIXct} columns at midnight become \code{Date}, with
-a message. \code{by} columns must be unique on each side. \code{print()} also
-reports matched rows and compared columns.
+are compared for values. With \code{factors = "as_factors"}, factor columns
+whose levels differ in set or order land in \code{schema}, with their level
+definitions shown. \code{POSIXct} columns at midnight become \code{Date}, with a
+message. \code{by} columns must be unique on each side. \code{print()} also reports
+matched rows and compared columns.
 }
+\section{Error conditions}{
+
+With \code{raise_error = TRUE}, errors of class \code{kompare_error} carry the
+report in \code{body} and the result in \code{obj}.
+}
+
 \examples{
 l <- tibble::tibble(id = 1:3, x = c(1, 2, 3))
 r <- tibble::tibble(id = 1:3, x = c(1, 2.5, 3))
