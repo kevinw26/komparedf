@@ -18,7 +18,7 @@ library(dplyr)
 l <- tibble(id = 1:3, price = c(10, 20, 30))
 r <- tibble(id = 1:4, price = c(10, 21, 30, 40))
 
-kompare(l, r, by = join_by(id))
+kompare(l, r, join_by(id))
 ```
 ```
 # kompare: 3 x 2 vs 4 x 2, by: id
@@ -43,7 +43,7 @@ vector (`c(l_id = "r_id")`). Leave it `NULL` to compare rows by position.
 ## Results
 
 ```r
-out <- kompare(l, r, by = "id")
+out <- kompare(l, r, join_by(id))
 
 out$schema   # columns on one side only, or retyped
 out$keys     # rows with no match
@@ -68,7 +68,7 @@ tidy(out)            # tibble: type, col, diffs (attach generics or broom)
 | `raise_error` | `FALSE`       | abort with the report on differences      |
 
 ```r
-kompare(l, r, by = "id", raise_error = TRUE)
+kompare(l, r, join_by(id), raise_error = TRUE)
 #> Error: kompare found differences between l and r
 ```
 

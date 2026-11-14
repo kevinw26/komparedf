@@ -16,6 +16,17 @@ iris_base <- iris |>
   rename_with(str_to_lower) |>
   mutate(id = row_number())
 
+test_that("omission of join_by defaults to positional comparison", {
+  l <- tibble::tibble(x = c(12, 22))
+  r <- l |> mutate(x = c(14, 24))
+
+  # digits = 0 rounds to nearest 1, so 12 != 14
+  expect_length(kompare(l, r, digits = 0)$diffs, 1)
+  
+  # digits = -1 rounds to nearest 10, so 12 == 10 and 14 == 10
+  expect_length(kompare(l, r, digits = -1)$diffs, 0)
+})
+
 test_that("kompare flags a numeric value shifted by adding 1", {
   l <- iris_base
   r <- iris_base |> mutate(sepal.length = if_else(id == 1, sepal.length + 1, sepal.length))
