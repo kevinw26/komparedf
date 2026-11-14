@@ -16,7 +16,12 @@ test_that("strings = 'strict' compares exactly", {
   r <- l |> mutate(s = c("A ", "b"))
 
   expect_equal(nrow(kompare(l, r, by = "id")$diffs$chr), 1)
-  expect_length(kompare(l, r, by = "id", strings = "loose")$diffs, 0)
+  # each flag alone still differs
+  expect_equal(nrow(kompare(l, r, by = "id", strings = "ignorecase")$diffs$chr), 1)
+  expect_equal(nrow(kompare(l, r, by = "id", strings = "trim")$diffs$chr), 1)
+  # combined, in any order, matches
+  expect_length(kompare(l, r, by = "id", strings = "ignorecase_trim")$diffs, 0)
+  expect_length(kompare(l, r, by = "id", strings = "trim_ignorecase")$diffs, 0)
 })
 
 test_that("ignore drops columns from value comparison", {

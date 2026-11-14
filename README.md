@@ -61,7 +61,7 @@ tidy(out)            # tibble: type, col, diffs (attach generics or broom)
 | Argument      | Default       | Effect                                    |
 |---------------|---------------|-------------------------------------------|
 | `digits`      | `4`           | decimal places for numeric tolerance      |
-| `strings`     | `"strict"`    | `"loose"` ignores case and outer spaces   |
+| `strings`     | `"strict"`    | `"ignorecase"`, `"trim"`, or joined `_`   |
 | `factors`     | `"as_strings"`| `"as_factors"` flags differing level definitions |
 | `ignore`      | `NULL`        | columns skipped in value comparisons      |
 | `fn`          | `\(d) d`      | applied to both frames before comparing   |

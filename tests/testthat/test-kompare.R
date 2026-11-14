@@ -90,7 +90,7 @@ test_that("kompare does not flag a string difference", {
   l <- iris_base |> mutate(species = as.character(species))
   r <- l |> mutate(species = if_else(id == 20, "sEtOsA ", species))
 
-  out <- kompare(l, r, keys = "id", strings = "loose")
+  out <- kompare(l, r, keys = "id", strings = "ignorecase_trim")
   flagged <- out$diffs
 
   expect_null(flagged$diffs$chr)
@@ -208,6 +208,6 @@ test_that("kompare rejects a by spec that repeats a column", {
 })
 
 test_that("strings and factors are checked against their choices", {
-  expect_error(kompare(iris_base, iris_base, strings = "tight"), "must be one of")
+  expect_error(kompare(iris_base, iris_base, strings = "tight"), "combination of ignorecase and trim")
   expect_error(kompare(iris_base, iris_base, factors = "character"), "must be one of")
 })

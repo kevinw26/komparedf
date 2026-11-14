@@ -26,8 +26,8 @@ vector of shared column names, or a named vector (\code{c(l = "r")}). \code{NULL
 
 \item{digits}{Decimal places for numeric tolerance. Default \code{4}.}
 
-\item{strings}{\code{"strict"} (default) or \code{"loose"} (lowercase and trim
-before comparing).}
+\item{strings}{\code{"strict"} (default) or a \verb{_}-joined combination of
+\code{"ignorecase"} and \code{"trim"}, in any order (e.g. \code{"ignorecase_trim"}).}
 
 \item{factors}{\code{"as_strings"} (default) or \code{"as_factors"} (compared as
 factors; columns whose levels differ in set or order land in \code{schema}).}

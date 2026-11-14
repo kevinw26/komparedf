@@ -35,8 +35,8 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #'   vector of shared column names, or a named vector (`c(l = "r")`). `NULL`
 #'   (default) compares rows by position.
 #' @param digits Decimal places for numeric tolerance. Default `4`.
-#' @param strings `"strict"` (default) or `"loose"` (lowercase and trim
-#'   before comparing).
+#' @param strings `"strict"` (default) or a `_`-joined combination of
+#'   `"ignorecase"` and `"trim"`, in any order (e.g. `"ignorecase_trim"`).
 #' @param factors `"as_strings"` (default) or `"as_factors"` (compared as
 #'   factors; columns whose levels differ in set or order land in `schema`).
 #' @param raise_error Abort with the printed summary on differences. Default
@@ -70,7 +70,7 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' @importFrom dplyr rename_with select all_of mutate row_number full_join inner_join filter distinct pull rename join_by cur_column ungroup
 #' @importFrom tidyr pivot_longer drop_na
 #' @importFrom purrr map map_chr map2 set_names discard
-#' @importFrom stringr str_to_lower str_c str_trim
+#' @importFrom stringr str_to_lower str_c str_trim str_split_1
 #' @importFrom glue glue
 #' @importFrom tibble tibble
 #' @importFrom stats na.omit
@@ -88,35 +88,22 @@ kompare <- \(
   if (!is.null(dots$roundDigits)) digits <- dots$roundDigits
   if (!is.null(dots$round)) digits <- dots$round
 
-  # enum args
-  strings <- arg_match(strings, c("strict", "loose"))
+  # arg parsing
   factors <- arg_match(factors, c("as_strings", "as_factors"))
+  sf <- if (!identical(strings, "strict")) {
+    str_split_1(strings, "_") |> str_to_lower()
+  } else character()
+  if (length(setdiff(sf, c("ignorecase", "trim"))) > 0) {
+    abort(glue('strings must be "strict" or a combination of ignorecase and trim, not "{strings}"'))
+  }
+  sf_ignorecase <- "ignorecase" %in% sf
+  sf_trim       <- "trim" %in% sf
 
   # validate inputs and normalise column names
   l <- validate_frame(l, "l")
   r <- validate_frame(r, "r")
 
   # helper functions
-  has_dupes <- \(d) any(d |> select(all_of(by)) |> duplicated())
-
-  # repeated key combinations, shown in the duplicate key error
-  repeated_keys <- \(d) {
-    k <- d |> select(all_of(by))
-    k <- k[duplicated(k), , drop = FALSE]
-    k |>
-      head(3) |>
-      apply(1, \(row) str_c(as.character(row), collapse = "/")) |>
-      str_c(collapse = ", ")
-  }
-
-  # factor cols shared by both sides, with levels unioned for comparison
-  factor_cols <- intersect(
-    l |> select(where(is.factor)) |> names(),
-    r |> select(where(is.factor)) |> names()
-  )
-  factor_lvls <- factor_cols |>
-    set_names(factor_cols) |>
-    map(\(col) union(levels(l[[col]]), levels(r[[col]])))
   clean_types <- \(d) {
     if (factors == "as_strings") {
       return(mutate(d, across(where(is.factor), as.character)))
@@ -126,12 +113,22 @@ kompare <- \(
       \(x) factor(x, levels = factor_lvls[[cur_column()]])
     ))
   }
-
-  # datetime columns with no time component, warned once across both sides
   all_midnight <- \(x) all(hour(x) == 0 & minute(x) == 0 & second(x) == 0, na.rm = TRUE)
   date_cols <- \(d) d |>
     select(where(\(x) inherits_any(x, "POSIXt") && all_midnight(x))) |>
     names()
+
+  # factor cols shared by both sides, with levels unioned for comparison
+  factor_cols <- intersect(
+    l |> select(where(is.factor)) |> names(),
+    r |> select(where(is.factor)) |> names()
+  )
+  factor_lvls <- factor_cols |>
+    set_names(factor_cols) |>
+    map(\(col) union(levels(l[[col]]), levels(r[[col]])))
+
+  # datetime columns with no time component, warned once across both sides
+  # coerce to date where needed
   cols_to_date <- union(date_cols(l), date_cols(r))
   if (length(cols_to_date) > 0) {
     inform(glue(
@@ -139,21 +136,17 @@ kompare <- \(
       "to lubridate date"))
   }
   unify_dates <- \(d) mutate(d, across(all_of(intersect(cols_to_date, names(d))), as_date))
-
-  # coerce dates, apply the function
   l <- l |> unify_dates()
   r <- r |> unify_dates()
 
-  # abort if a key column is named twice
-  no_repeats <- \(x, side = NULL) {
+  # construct and validate join_by if necessary
+  check_by_repeats <- \(x, side = NULL) {
     if (anyDuplicated(x) > 0) {
       repeats <- x[duplicated(x)] |> unique() |> str_c(collapse = ", ")
       where <- if (is.null(side)) "" else glue(" on the {side} side")
       abort(glue("by repeats a column{where}: {repeats}"))
     }
   }
-
-  # named vector: names are l cols, values r cols
   if (is.character(by) && !is.null(names(by))) {
     by <- join_by(!!!map2(names(by), by, \(x, y) expr(!!sym(x) == !!sym(y))))
   }
@@ -163,36 +156,45 @@ kompare <- \(
   if (inherits_any(by, "dplyr_join_by")) {
     by$x <- by$x |> str_to_lower()
     by$y <- by$y |> str_to_lower()
-    no_repeats(by$x, "l")
-    no_repeats(by$y, "r")
+    check_by_repeats(by$x, "l")
+    check_by_repeats(by$y, "r")
     r <- r |> rename(!!!set_names(by$y, by$x))
     by <- by$x
   } else if (!is.null(by)) {
     by <- by |> str_to_lower()
-    no_repeats(by)
+    check_by_repeats(by)
   }
 
-  # apply optional function
+  # apply user-specified optional function
   l <- l |> fn()
   r <- r |> fn()
   n_cols <- c(ncol(l), ncol(r))
 
   # assign row number if necessary; check for key duplicates
+  has_key_dupes <- \(d) any(d |> select(all_of(by)) |> duplicated())
+  format_dupes <- \(d) {
+    k <- d |> select(all_of(by))
+    k <- k[duplicated(k), , drop = FALSE]
+    k |>
+      head(3) |>
+      apply(1, \(row) str_c(as.character(row), collapse = "/")) |>
+      str_c(collapse = ", ")
+  }
   if (is.null(by)) {
     l <- l |> mutate(.rn = row_number())
     r <- r |> mutate(.rn = row_number())
     by <- ".rn"
   } else {
-    if (has_dupes(l)) {
+    if (has_key_dupes(l)) {
       abort(glue(
-        "by {str_c(by, collapse = ', ')} must uniquely identify all rows in l",
-        "; repeated keys: {repeated_keys(l)}"
+        "by {str_c(by, collapse = ', ')} must uniquely identify all rows in l; ",
+        "repeated keys: {format_dupes(l)}"
       ))
     }
-    if (has_dupes(r)) {
+    if (has_key_dupes(r)) {
       abort(glue(
-        "by {str_c(by, collapse = ', ')} must uniquely identify all rows in r",
-        "; repeated keys: {repeated_keys(r)}"
+        "by {str_c(by, collapse = ', ')} must uniquely identify all rows in r; ",
+        "repeated keys: {format_dupes(r)}"
       ))
     }
   }
@@ -237,10 +239,12 @@ kompare <- \(
         comp |>
           mutate(.l = round(.l, digits), .r = round(.r, digits)) |>
           filter(.l != .r | is.na(.l) != is.na(.r))
-      } else if (type == "chr" && strings == "loose") {
-        clean_str <- \(s) s |>
-          str_to_lower() |>
-          str_trim()
+      } else if (type == "chr" && (sf_ignorecase || sf_trim)) {
+        clean_str <- \(s) {
+          if (sf_ignorecase) s <- str_to_lower(s)
+          if (sf_trim) s <- str_trim(s)
+          s
+        }
         comp |>
           mutate(.l = clean_str(.l), .r = clean_str(.r)) |>
           filter(.l != .r | is.na(.l) != is.na(.r))
