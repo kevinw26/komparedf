@@ -30,6 +30,11 @@ test_that("ignore drops columns from value comparison", {
 
   expect_equal(nrow(kompare(l, r, by = "id")$diffs$dbl), 2)
   expect_length(kompare(l, r, by = "id", ignore = "updated")$diffs, 0)
+  expect_equal(attr(kompare(l, r, by = "id", ignore = "updated"), "compared")[["cols"]], 2)
+  expect_equal(
+    attr(kompare(l, r, by = "id", ignore = c("id", "updated")), "compared")[["cols"]],
+    1
+  )
 
   retyped <- l |> mutate(updated = as.character(updated))
   expect_equal(nrow(kompare(l, retyped, by = "id", ignore = "updated")$schema), 1)
@@ -60,4 +65,89 @@ test_that("positional comparison lines rows up by position", {
 
   expect_equal(nrow(out$keys), 1)
   expect_equal(out$diffs$int$.rn, 2)
+})
+
+test_that("digits must be a single finite integer", {
+  l <- tibble::tibble(id = 1, x = 1.2)
+
+  expect_error(kompare(l, l, by = "id", digits = "4"), "digits must be")
+  expect_error(kompare(l, l, by = "id", digits = NA), "digits must be")
+  expect_error(kompare(l, l, by = "id", digits = Inf), "digits must be")
+  expect_error(kompare(l, l, by = "id", digits = c(1, 2)), "digits must be")
+  expect_error(kompare(l, l, by = "id", digits = TRUE), "digits must be")
+})
+
+test_that("strings must be a single string", {
+  l <- tibble::tibble(id = 1, x = "a")
+
+  expect_error(kompare(l, l, by = "id", strings = NULL), "strings must be a single string")
+  expect_error(
+    kompare(l, l, by = "id", strings = c("trim", "ignorecase")),
+    "strings must be a single string"
+  )
+})
+
+test_that("raise_error must be a logical", {
+  l <- tibble::tibble(id = 1, x = 1)
+
+  expect_error(kompare(l, l, by = "id", raise_error = NA), "raise_error must be")
+  expect_error(kompare(l, l, by = "id", raise_error = "yes"), "raise_error must be")
+})
+
+test_that("ignore names columns that exist in at least one frame", {
+  l <- tibble::tibble(id = 1:2, Updated = c(1, 2))
+  r <- l |> mutate(Updated = Updated + 1)
+
+  expect_error(kompare(l, r, by = "id", ignore = "nope"),
+    "doesn't exist")
+  expect_no_error(
+    kompare(tibble::tibble(id = 1, x = 1), tibble::tibble(id = 1, y = 1), by = "id", ignore = "x")
+  )
+  expect_length(kompare(l, r, by = "id")$diffs, 1)
+  expect_length(kompare(l, r, by = "id", ignore = "Updated")$diffs, 0)
+})
+
+test_that("ignore accepts bare column names", {
+  l <- tibble::tibble(id = 1:2, price = c(1, 2))
+  r <- l |> mutate(price = price + 1)
+  cols <- "price"
+
+  expect_length(kompare(l, r, by = "id")$diffs, 1)
+  expect_length(kompare(l, r, by = "id", ignore = c(price))$diffs, 0)
+  expect_length(kompare(l, r, by = "id", ignore = price)$diffs, 0)
+  expect_length(kompare(l, r, by = "id", ignore = all_of(cols))$diffs, 0)
+  expect_length(kompare(l, r, by = "id", ignore = c(Price))$diffs, 0)
+  expect_length(kompare(l, r, by = "id", ignore = starts_with("pri"))$diffs, 0)
+  expect_error(kompare(l, r, by = "id", ignore = c("price", NA)), "missing values")
+  expect_error(kompare(l, r, by = "id", ignore = c(price, NA)), "missing values")
+  expect_error(kompare(l, r, by = "id", ignore = NA), "missing values")
+})
+
+test_that("fn must be a function returning a frame with the by columns", {
+  l <- tibble::tibble(id = 1, x = 1)
+
+  expect_error(kompare(l, l, by = "id", fn = NULL), "fn must be a function")
+  expect_error(kompare(l, l, by = "id", fn = \(d) d$id), "must return a data frame")
+  expect_error(kompare(l, l, by = "id", fn = \(d) select(d, x)), "missing from l")
+  expect_error(kompare(l, l, by = "id", fn = \(d) mutate(d, .rn = 1)), "reserved column name")
+})
+
+test_that("fn output is ungrouped", {
+  l <- tibble::tibble(id = 1:2, g = c("a", "b"), x = c(1, 2))
+  r <- l |> mutate(x = c(9, 2))
+
+  out <- kompare(l, r, by = "id", fn = \(d) group_by(d, g))
+
+  expect_equal(nrow(out$diffs$dbl), 1)
+  expect_equal(out$diffs$dbl$id, 1)
+})
+
+test_that("print requires a positive integer n", {
+  out <- kompare(tibble::tibble(id = 1), tibble::tibble(id = 1), by = "id")
+
+  expect_error(print(out, n = 0), "positive integer")
+  expect_error(print(out, n = NA), "positive integer")
+  expect_error(print(out, n = 2.5), "positive integer")
+  expect_error(format(out, n = -1), "positive integer")
+  expect_no_error(capture.output(print(out, n = 2)))
 })

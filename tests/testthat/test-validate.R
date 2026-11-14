@@ -73,3 +73,52 @@ test_that("kompare validates both sides", {
   expect_error(kompare(df, 1:3), "r must be a data frame")
   expect_error(kompare(df, df, by = c("Species", "Species")), "by repeats a column")
 })
+
+test_that("reserved column names are rejected", {
+  expect_error(
+    kompare(tibble::tibble(.rn = 1, x = 1), tibble::tibble(.rn = 1, x = 1), by = "x"),
+    "reserved column name"
+  )
+  expect_error(
+    kompare(tibble::tibble(id = 1, "a\x1fb" = 1), tibble::tibble(id = 1), by = "id"),
+    "unit separator"
+  )
+})
+
+test_that("by columns must exist on the correct side", {
+  expect_error(kompare(tibble::tibble(id = 1), tibble::tibble(x = 1), by = "id"),
+    "missing from r: id")
+  expect_error(kompare(tibble::tibble(x = 1), tibble::tibble(id = 1), by = "id"),
+    "missing from l: id")
+})
+
+test_that("by must use equality conditions only", {
+  l <- tibble::tibble(a = 1:2)
+  r <- tibble::tibble(b = 1:2)
+  bc <- tibble::tibble(b = 1, c = 2)
+
+  expect_error(kompare(l, r, by = join_by(a >= b)), "equality conditions")
+  expect_error(kompare(l, r, by = join_by(closest(a >= b))), "equality conditions")
+  expect_error(kompare(tibble::tibble(a = 1), bc, by = join_by(between(a, b, c))),
+    "equality conditions")
+})
+
+test_that("by rejects unsupported specifications", {
+  l <- tibble::tibble(id = 1)
+
+  expect_error(kompare(l, l, by = 1), "must be NULL")
+  expect_error(kompare(l, l, by = ~id), "must be NULL")
+  expect_error(kompare(l, l, by = character()), "at least one column")
+  expect_error(kompare(l, l, by = c("id", x = "id")), "all be given or all omitted")
+})
+
+test_that("asymmetric by rejects renames that would collide", {
+  expect_error(
+    kompare(tibble::tibble(id = 1), tibble::tibble(id = 1, ident = 1), by = c(id = "ident")),
+    "already has those columns"
+  )
+  expect_error(
+    kompare(tibble::tibble(a = 1), tibble::tibble(a = 1, b = 1), by = join_by(a == b)),
+    "already has those columns"
+  )
+})

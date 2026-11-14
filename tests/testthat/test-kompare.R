@@ -211,3 +211,60 @@ test_that("strings and factors are checked against their choices", {
   expect_error(kompare(iris_base, iris_base, strings = "tight"), "combination of ignorecase and trim")
   expect_error(kompare(iris_base, iris_base, factors = "character"), "must be one of")
 })
+
+test_that("kompare compares list columns", {
+  l <- tibble(id = 1:2, x = list(1:2, "a"))
+  r <- tibble(id = 1:2, x = list(1:2, "b"))
+
+  out <- kompare(l, r, by = "id")
+  flagged <- out$diffs$list
+
+  expect_equal(nrow(flagged), 1)
+  expect_equal(flagged$id, 2)
+  expect_equal(flagged$.l[[1]], "a")
+  expect_equal(flagged$.r[[1]], "b")
+  expect_true(as.logical(kompare(l, l, by = "id")))
+})
+
+test_that("kompare compares matrix columns row by row", {
+  l <- tibble(id = 1:2, x = matrix(c(1, 2, 3, 4), 2))
+  r <- tibble(id = 1:2, x = matrix(c(1, 9, 3, 4), 2))
+
+  out <- kompare(l, r, by = "id")
+  flagged <- out$diffs[["dbl[,2]"]]
+
+  expect_equal(nrow(flagged), 1)
+  expect_equal(flagged$id, 2)
+  expect_true(as.logical(kompare(l, l, by = "id")))
+})
+
+test_that("print renders matrix differences", {
+  l <- tibble(id = 1:2, x = matrix(c(1, 2, 3, 4), 2))
+  r <- tibble(id = 1:2, x = matrix(c(1, 9, 3, 4), 2))
+
+  txt <- capture.output(print(kompare(l, r, by = "id")))
+
+  expect_true(any(str_detect(txt, "2/4")))
+})
+
+test_that("by rejects names reserved by the result schema", {
+  expect_error(kompare(tibble(col = 1), tibble(col = 1), by = "col"), "reserved column names")
+  expect_error(kompare(tibble(.l = 1), tibble(.l = 1), by = ".l"), "reserved column names")
+  expect_error(kompare(tibble(.r = 1), tibble(.r = 1), by = ".r"), "reserved column names")
+})
+
+test_that("a type key does not clash with the diff type label", {
+  l <- tibble(type = 1:2, x = c(1, 2))
+
+  expect_no_error(capture.output(print(kompare(l, l, by = "type"))))
+
+  out <- kompare(l, tibble(type = 1:2, x = c(9, 2)), by = "type")
+  txt <- capture.output(print(out))
+
+  expect_true(any(str_detect(txt, "data_type")))
+  expect_true(any(str_detect(txt, "dbl")))
+
+  l2 <- tibble(type = 1:2, data_type = c("a", "b"), x = c(1, 2))
+  out2 <- kompare(l2, l2 |> mutate(x = c(9, 2)), by = c("type", "data_type"))
+  expect_true(any(str_detect(capture.output(print(out2)), "\\.data_type")))
+})

@@ -25,6 +25,7 @@ Imports:
     stringr,
     tibble,
     tidyr,
+    tidyselect,
     vctrs
 Suggests: 
     bit64,

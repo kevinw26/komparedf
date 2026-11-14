@@ -1,3 +1,30 @@
+# reject names that clash with internal columns
+check_names <- \(d, name) {
+  if (".rn" %in% names(d)) {
+    abort(glue("{name} has a reserved column name: .rn"))
+  }
+  if (any(str_detect(names(d), "\x1f"))) {
+    abort(glue("{name} has a column name containing the unit separator (\\x1f)"))
+  }
+  invisible(d)
+}
+
+# lower-case names in a tidyselect expression so matching ignores case
+lower_selection <- \(expr) {
+  if (is_symbol(expr)) return(sym(str_to_lower(as_string(expr))))
+  if (is_character(expr)) return(str_to_lower(expr))
+  if (is_call(expr)) return(as.call(map(as.list(expr), lower_selection)))
+  expr
+}
+
+# resolve ignore with tidyselect, lowering selections to match column names
+resolve_ignore_cols <- \(quo, l, r) {
+  cols <- union(names(l), names(r))
+  proxy <- set_names(as.list(rep(0L, length(cols))), cols)
+  quo <- quo_set_expr(quo, lower_selection(quo_get_expr(quo)))
+  tidyselect::eval_select(quo, proxy, allow_rename = FALSE) |> names()
+}
+
 # check a frame, lower-case its names, reject duplicates the lowercasing creates
 validate_frame <- \(d, name) {
   if (!is.data.frame(d)) {
@@ -14,6 +41,7 @@ validate_frame <- \(d, name) {
       name = name, cols = cols
     ))
   }
+  check_names(d, name)
   d
 }
 
@@ -41,8 +69,12 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #'   factors; columns whose levels differ in set or order land in `schema`).
 #' @param raise_error Abort with the printed summary on differences. Default
 #'   `FALSE`.
-#' @param ignore Columns skipped in value comparisons. Default `NULL`.
-#' @param fn Applied to both frames before comparing. Default `\(d) d`.
+#' @param ignore Columns skipped in value comparisons, selected with
+#'   [tidyselect::language] syntax: character vectors, bare names, or helpers
+#'   (e.g. `c(price)`, `starts_with("cost")`). Matching ignores case. Columns
+#'   must exist in at least one frame. `NULL` (default) ignores nothing.
+#' @param fn Applied to both frames before comparing; its output is ungrouped.
+#'   Default `\(d) d`.
 #' @param ... Aliases.
 #'
 #' @return A `kompare` list: `schema` (columns missing on one side or
@@ -66,16 +98,16 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' r <- tibble::tibble(id = 1:3, x = c(1, 2.5, 3))
 #' kompare(l, r, dplyr::join_by(id))
 #'
-#' @importFrom rlang abort warn inform expr sym arg_match inherits_any
+#' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool enquo quo_get_expr quo_set_expr is_symbol is_call as_string
 #' @importFrom dplyr rename_with select all_of mutate row_number full_join inner_join filter distinct pull rename join_by cur_column ungroup
 #' @importFrom tidyr pivot_longer drop_na
 #' @importFrom purrr map map_chr map2 set_names discard
-#' @importFrom stringr str_to_lower str_c str_trim str_split_1
+#' @importFrom stringr str_to_lower str_c str_trim str_split_1 str_detect
 #' @importFrom glue glue
 #' @importFrom tibble tibble
 #' @importFrom stats na.omit
 #' @importFrom lubridate as_date hour minute second
-#' @importFrom vctrs vec_ptype_abbr
+#' @importFrom vctrs vec_ptype_abbr vec_equal
 #'
 #' @export
 kompare <- \(
@@ -88,8 +120,20 @@ kompare <- \(
   if (!is.null(dots$roundDigits)) digits <- dots$roundDigits
   if (!is.null(dots$round)) digits <- dots$round
 
-  # arg parsing
+  # arg validation and parsing
+  if (!is.numeric(digits) || !is_scalar_integerish(digits) || !is.finite(digits)) {
+    abort("digits must be a single integer")
+  }
+  digits <- as.integer(digits)
+  if (!is_string(strings)) {
+    abort("strings must be a single string")
+  }
+  if (!is_bool(raise_error)) {
+    abort("raise_error must be TRUE or FALSE")
+  }
+
   factors <- arg_match(factors, c("as_strings", "as_factors"))
+
   sf <- if (!identical(strings, "strict")) {
     str_split_1(strings, "_") |> str_to_lower()
   } else character()
@@ -99,7 +143,7 @@ kompare <- \(
   sf_ignorecase <- "ignorecase" %in% sf
   sf_trim       <- "trim" %in% sf
 
-  # validate inputs and normalise column names
+  # validate data frame inputs
   l <- validate_frame(l, "l")
   r <- validate_frame(r, "r")
 
@@ -117,6 +161,7 @@ kompare <- \(
   date_cols <- \(d) d |>
     select(where(\(x) inherits_any(x, "POSIXt") && all_midnight(x))) |>
     names()
+  neq <- \(x, y) !vec_equal(x, y, na_equal = TRUE)
 
   # factor cols shared by both sides, with levels unioned for comparison
   factor_cols <- intersect(
@@ -139,7 +184,7 @@ kompare <- \(
   l <- l |> unify_dates()
   r <- r |> unify_dates()
 
-  # construct and validate join_by if necessary
+  # construct and validate by
   check_by_repeats <- \(x, side = NULL) {
     if (anyDuplicated(x) > 0) {
       repeats <- x[duplicated(x)] |> unique() |> str_c(collapse = ", ")
@@ -147,37 +192,93 @@ kompare <- \(
       abort(glue("by repeats a column{where}: {repeats}"))
     }
   }
-  if (is.character(by) && !is.null(names(by))) {
-    by <- join_by(!!!map2(names(by), by, \(x, y) expr(!!sym(x) == !!sym(y))))
+  check_by_exists <- \(x, cols, side) {
+    missing <- setdiff(x, cols)
+    if (length(missing) > 0) {
+      abort(glue("by columns missing from {side}: {str_c(missing, collapse = ', ')}"))
+    }
+  }
+  if (!is.null(by) && !is.character(by) && !inherits_any(by, "dplyr_join_by")) {
+    abort("by must be NULL, a character vector, or a dplyr::join_by() object")
+  }
+  if (is.character(by)) { # parse by into join_by, if is character
+    if (length(by) == 0) {
+      abort("by must specify at least one column")
+    }
+    if (is.null(names(by))) {
+      lhs <- rhs <- by
+    } else {
+      if (any(names(by) == "" | is.na(names(by)))) {
+        abort("by names must either all be given or all omitted")
+      }
+      lhs <- names(by)
+      rhs <- unname(by)
+    }
+    by <- join_by(!!!map2(lhs, rhs, \(x, y) expr(!!sym(x) == !!sym(y))))
   }
 
   # allow by to be a join_by() object for asymmetric l/r column names,
   # same as left_join(l, r, by); rename r's cols to match l
   if (inherits_any(by, "dplyr_join_by")) {
-    by$x <- by$x |> str_to_lower()
-    by$y <- by$y |> str_to_lower()
-    check_by_repeats(by$x, "l")
-    check_by_repeats(by$y, "r")
-    r <- r |> rename(!!!set_names(by$y, by$x))
-    by <- by$x
-  } else if (!is.null(by)) {
-    by <- by |> str_to_lower()
-    check_by_repeats(by)
+    if (any(by$condition != "==") || any(by$filter != "none")) {
+      conditions <- str_c(unique(by$condition), collapse = ", ")
+      abort(glue("by must contain only equality conditions (==), not: {conditions}"))
+    }
+    by_l <- by$x |> str_to_lower()
+    by_r <- by$y |> str_to_lower()
+    reserved <- intersect(union(by_l, by_r), c("col", ".l", ".r"))
+    if (length(reserved) > 0) {
+      abort(glue("by cannot use reserved column names: {str_c(reserved, collapse = ', ')}"))
+    }
+
+    check_by_repeats(by_l, "l")
+    check_by_repeats(by_r, "r")
+    check_by_exists(by_l, names(l), "l")
+    check_by_exists(by_r, names(r), "r")
+
+    clash <- intersect(setdiff(by_l, by_r), names(r))
+    if (length(clash) > 0) {
+      abort(glue(
+        "by cannot rename r columns to {str_c(clash, collapse = ', ')}; ",
+        "r already has those columns"
+      ))
+    }
+
+    r <- r |> rename(!!!set_names(by_r, by_l))
+    by <- by_l
   }
 
   # apply user-specified optional function
-  l <- l |> fn()
-  r <- r |> fn()
+  if (!is.function(fn)) {
+    abort("fn must be a function")
+  }
+  apply_fn <- \(d, side) {
+    out <- fn(d)
+    if (!is.data.frame(out)) {
+      abort(glue("fn must return a data frame; {side} returned {class(out)[1]}"))
+    }
+    out <- out |> ungroup()
+    check_names(out, side)
+    if (!is.null(by)) {
+      check_by_exists(by, names(out), side)
+    }
+    out
+  }
+  l <- apply_fn(l, "l")
+  r <- apply_fn(r, "r")
   n_cols <- c(ncol(l), ncol(r))
+
+  # resolve columns ignored in case insensitive tidyselect
+  ignore <- resolve_ignore_cols(enquo(ignore), l, r)
 
   # assign row number if necessary; check for key duplicates
   has_key_dupes <- \(d) any(d |> select(all_of(by)) |> duplicated())
   format_dupes <- \(d) {
     k <- d |> select(all_of(by))
-    k <- k[duplicated(k), , drop = FALSE]
-    k |>
-      head(3) |>
-      apply(1, \(row) str_c(as.character(row), collapse = "/")) |>
+    k <- k[duplicated(k), , drop = FALSE] |> head(3)
+    map_chr(seq_len(nrow(k)), \(i) {
+      str_c(unlist(k[i, ], use.names = FALSE), collapse = "/")
+    }) |>
       str_c(collapse = ", ")
   }
   if (is.null(by)) {
@@ -238,7 +339,7 @@ kompare <- \(
       if (type %in% c("dbl", "int")) {
         comp |>
           mutate(.l = round(.l, digits), .r = round(.r, digits)) |>
-          filter(.l != .r | is.na(.l) != is.na(.r))
+          filter(neq(.l, .r))
       } else if (type == "chr" && (sf_ignorecase || sf_trim)) {
         clean_str <- \(s) {
           if (sf_ignorecase) s <- str_to_lower(s)
@@ -247,9 +348,9 @@ kompare <- \(
         }
         comp |>
           mutate(.l = clean_str(.l), .r = clean_str(.r)) |>
-          filter(.l != .r | is.na(.l) != is.na(.r))
+          filter(neq(.l, .r))
       } else {
-        comp |> filter(.l != .r | is.na(.l) != is.na(.r))
+        comp |> filter(neq(.l, .r))
       }
     }) |>
     set_names(d_types) |>
@@ -273,7 +374,7 @@ kompare <- \(
     dims = c(nrow(l), nrow(r)),
     compared = c(
       rows = (nrow(l) + nrow(r) - nrow(unmatched)) / 2,
-      cols = length(compared_cols) + length(by)
+      cols = length(compared_cols) + length(setdiff(by, ignore))
     ),
     settings = list(
       by = by,

@@ -13,11 +13,37 @@ f_num <- \(x) {
   .glue("  {lines}")
 }
 
+# one display string per row, whatever the column type
+.fmt_cell <- \(x) {
+  if (is.matrix(x) || is.data.frame(x)) return(
+    map_chr(seq_len(nrow(x)), \(i) str_c(unlist(x[i,], use.names = FALSE), collapse = "/"))
+  )
+  if (is.list(x)) return(map_chr(x, \(v) str_c(format(v), collapse = "/")))
+  as.character(x)
+}
+
+# positive whole number of rows to show
+check_n <- \(n) {
+  if (!is.numeric(n) || !is_scalar_integerish(n) || !is.finite(n) || n < 1) {
+    abort("n must be a positive integer")
+  }
+  as.integer(n)
+}
+
+# first unused column name for the diff type label
+.type_label <- \(d) {
+  if (!"type" %in% names(d)) return("type")
+  label <- "data_type"
+  while (label %in% names(d)) label <- str_c(".", label)
+  label
+}
+
 # number of differences in a kompare object
 .n_diffs <- \(x) nrow(x$schema) + nrow(x$keys) + sum(map_int(x$diffs, nrow))
 
 # render a kompare object as lines
 .format_kompare <- \(x, n = 5) {
+  n <- check_n(n)
   settings <- attr(x, "settings")
   dims <- attr(x, "dims")
   compared <- attr(x, "compared")
@@ -67,10 +93,13 @@ f_num <- \(x) {
   } else {
     lines <- c(lines, "value differences by type:")
     shown_diffs <- x$diffs |>
-      imap(\(d, type) d |>
-        head(n) |>
-        mutate(type = type, .before = 1) |>
-        mutate(across(c(.l, .r), as.character))) |>
+      imap(\(d, type) {
+        label <- .type_label(d)
+        d |>
+          head(n) |>
+          mutate(!!sym(label) := .env$type, .before = 1) |>
+          mutate(.l = .fmt_cell(.l), .r = .fmt_cell(.r))
+      }) |>
       bind_rows()
     lines <- c(lines, .table_lines(shown_diffs, nrow(shown_diffs)))
     diff_count <- sum(map_int(x$diffs, nrow))

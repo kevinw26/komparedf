@@ -35,9 +35,13 @@ factors; columns whose levels differ in set or order land in \code{schema}).}
 \item{raise_error}{Abort with the printed summary on differences. Default
 \code{FALSE}.}
 
-\item{ignore}{Columns skipped in value comparisons. Default \code{NULL}.}
+\item{ignore}{Columns skipped in value comparisons, selected with
+\link[tidyselect:language]{tidyselect::language} syntax: character vectors, bare names, or helpers
+(e.g. \code{c(price)}, \code{starts_with("cost")}). Matching ignores case. Columns
+must exist in at least one frame. \code{NULL} (default) ignores nothing.}
 
-\item{fn}{Applied to both frames before comparing. Default \verb{\\(d) d}.}
+\item{fn}{Applied to both frames before comparing; its output is ungrouped.
+Default \verb{\\(d) d}.}
 
 \item{...}{Aliases.}
 }
