@@ -3,20 +3,25 @@
 \name{summary.kompare}
 \alias{summary.kompare}
 \alias{print.kompare}
-\title{summarize a kompare object}
+\alias{format.kompare}
+\title{Summarize a kompare object}
 \usage{
-\method{summary}{kompare}(object, ...)
+\method{summary}{kompare}(object, n = 5, ...)
 
-\method{print}{kompare}(x, ...)
+\method{print}{kompare}(x, n = 5, ...)
+
+\method{format}{kompare}(x, n = 5, ...)
 }
 \arguments{
-\item{object}{a \code{kompare} object, as returned by \code{\link[=kompare]{kompare()}}.}
+\item{object}{A \code{kompare} object.}
 
-\item{...}{not used.}
+\item{n}{Rows and columns shown per section. Default \code{5}.}
+
+\item{...}{Not used.}
 }
 \value{
-invisibly returns \code{object}.
+\code{object}, invisibly.
 }
 \description{
-summarize a kompare object
+Prints the difference report.
 }

@@ -21,7 +21,7 @@ test_that("kompare flags a numeric value shifted by adding 1", {
   r <- iris_base |> mutate(sepal.length = if_else(id == 1, sepal.length + 1, sepal.length))
 
   out <- kompare(l, r, keys = "id")
-  flagged <- out$diffs$numeric |> filter(col == "sepal.length")
+  flagged <- out$diffs$dbl |> filter(col == "sepal.length")
 
   expect_equal(nrow(flagged), 1)
   expect_equal(flagged |> pull(id), 1)
@@ -32,7 +32,7 @@ test_that("kompare flags a value set to na", {
   r <- iris_base |> mutate(sepal.width = if_else(id == 5, NA_real_, sepal.width))
 
   out <- kompare(l, r, keys = "id")
-  flagged <- out$diffs$numeric |> filter(col == "sepal.width")
+  flagged <- out$diffs$dbl |> filter(col == "sepal.width")
 
   expect_equal(nrow(flagged), 1)
   expect_equal(flagged |> pull(id), 5)
@@ -58,7 +58,7 @@ test_that("kompare flags a date difference", {
   )
 
   out <- kompare(l, r, keys = "id")
-  flagged <- out$diffs$Date
+  flagged <- out$diffs$date
 
   expect_equal(nrow(flagged), 1)
   expect_equal(flagged |> pull(id), 10)
@@ -69,7 +69,7 @@ test_that("kompare flags a string difference", {
   r <- l |> mutate(species = if_else(id == 20, "unknown", species))
 
   out <- kompare(l, r, keys = "id")
-  flagged <- out$diffs$character
+  flagged <- out$diffs$chr
 
   expect_equal(nrow(flagged), 1)
   expect_equal(flagged |> pull(id), 20)
@@ -79,10 +79,10 @@ test_that("kompare does not flag a string difference", {
   l <- iris_base |> mutate(species = as.character(species))
   r <- l |> mutate(species = if_else(id == 20, "sEtOsA ", species))
 
-  out <- kompare(l, r, keys = "id", .strings = "loose")
+  out <- kompare(l, r, keys = "id", strings = "loose")
   flagged <- out$diffs
 
-  expect_null(flagged$diffs$character)
+  expect_null(flagged$diffs$chr)
 })
 
 test_that("kompare flags unmatched keys", {
@@ -142,7 +142,7 @@ test_that("by accepts a named vector for asymmetric column names", {
   out <- kompare(l, r, by = c(id = "ident"))
 
   expect_equal(nrow(out$keys), 0)
-  expect_equal(out$diffs$numeric |> filter(col == "sepal.length") |> pull(id), 1)
+  expect_equal(out$diffs$dbl |> filter(col == "sepal.length") |> pull(id), 1)
 })
 
 test_that("keys, roundDigits, and round work as aliases", {
@@ -154,28 +154,28 @@ test_that("keys, roundDigits, and round work as aliases", {
   expect_equal(length(kompare(l, r, by = "id", roundDigits = 8)$diffs), 1)
 })
 
-test_that("summary reports compared cells and all match", {
+test_that("print reports compared cells and all match", {
   same <- kompare(iris_base, iris_base, by = "id")
-  txt <- capture.output(summary(same))
+  txt <- capture.output(print(same))
 
   expect_true(any(str_detect(txt, "compared 150 rows and 6 columns")))
   expect_true(any(str_detect(txt, "all match")))
 })
 
-test_that("summary counts differences", {
+test_that("print counts differences", {
   l <- tibble(id = 1:2, x = c(1, 2))
   r <- l |> mutate(x = x + 1)
 
-  txt <- capture.output(summary(kompare(l, r, by = "id")))
+  txt <- capture.output(print(kompare(l, r, by = "id")))
 
   expect_true(any(str_detect(txt, "2 differences found")))
 })
 
-test_that("summary notes different input lengths", {
+test_that("print notes different input lengths", {
   l <- tibble(id = 1:3, x = 1:3)
   r <- tibble(id = 1:2, x = 1:2)
 
-  txt <- capture.output(summary(kompare(l, r, by = "id")))
+  txt <- capture.output(print(kompare(l, r, by = "id")))
 
   expect_true(any(str_detect(txt, "different lengths \\(3 vs 2\\)")))
 })
@@ -196,21 +196,21 @@ test_that("kompare rejects a by spec that repeats a column", {
   expect_error(kompare(iris_base, iris_base, by = c(id = "ident", grp = "ident")), "by repeats a column")
 })
 
-test_that(".strings and .factor are checked against their choices", {
-  expect_error(kompare(iris_base, iris_base, .strings = "tight"), "must be one of")
-  expect_error(kompare(iris_base, iris_base, .factor = "character"), "must be one of")
+test_that("strings and factors are checked against their choices", {
+  expect_error(kompare(iris_base, iris_base, strings = "tight"), "must be one of")
+  expect_error(kompare(iris_base, iris_base, factors = "character"), "must be one of")
 })
 
-test_that(".factor harmonises levels when comparing as factors", {
+test_that("factors harmonises levels when comparing as factors", {
   l <- iris_base
   r <- iris_base
   levels(r$species) <- c(levels(r$species), "unknown")
   r$species[1] <- "unknown"
 
-  strings_out <- kompare(l, r, by = "id", .factor = "as_strings")
-  factors_out <- kompare(l, r, by = "id", .factor = "as_factors")
+  strings_out <- kompare(l, r, by = "id", factors = "as_strings")
+  factors_out <- kompare(l, r, by = "id", factors = "as_factors")
 
-  expect_equal(nrow(strings_out$diffs$factor), 1)
-  expect_equal(nrow(factors_out$diffs$factor), 1)
-  expect_no_warning(kompare(l, r, by = "id", .factor = "as_factors"))
+  expect_equal(nrow(strings_out$diffs$fct), 1)
+  expect_equal(nrow(factors_out$diffs$fct), 1)
+  expect_no_warning(kompare(l, r, by = "id", factors = "as_factors"))
 })

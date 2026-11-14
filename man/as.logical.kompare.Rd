@@ -2,19 +2,18 @@
 % Please edit documentation in R/summary-kompare.R
 \name{as.logical.kompare}
 \alias{as.logical.kompare}
-\title{coerce a kompare object to a logical}
+\title{Coerce a kompare object to a logical}
 \usage{
 \method{as.logical}{kompare}(x, ...)
 }
 \arguments{
-\item{x}{a \code{kompare} object, as returned by \code{\link[=kompare]{kompare()}}.}
+\item{x}{A \code{kompare} object.}
 
-\item{...}{not used.}
+\item{...}{Not used.}
 }
 \value{
-\code{TRUE} if \code{l} and \code{r} have no schema mismatches, unmatched keys,
-or value differences; \code{FALSE} otherwise.
+\code{TRUE} if nothing differs.
 }
 \description{
-coerce a kompare object to a logical
+Coerce a kompare object to a logical
 }

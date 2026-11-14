@@ -57,8 +57,8 @@ test_that("price moves are compared within the rounding tolerance", {
   moved$price[5] <- moved$price[5] + 0.01
   out <- kompare(l, moved, by = "ts")
 
-  expect_equal(nrow(out$diffs$numeric), 1)
-  expect_equal(out$diffs$numeric$ts, moved$ts[5])
+  expect_equal(nrow(out$diffs$dbl), 1)
+  expect_equal(out$diffs$dbl$ts, moved$ts[5])
 
   tiny <- l
   tiny$price[5] <- tiny$price[5] + 1e-6

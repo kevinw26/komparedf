@@ -8,112 +8,56 @@ kompare(
   l,
   r,
   by = NULL,
-  .round = 4,
-  .strings = "strict",
-  .factor = "as_strings",
-  .raise_error = FALSE,
-  .ignore = c(),
-  .fn = function(d) d,
+  digits = 4,
+  strings = "strict",
+  factors = "as_strings",
+  raise_error = FALSE,
+  ignore = NULL,
+  fn = function(d) d,
   ...
 )
 }
 \arguments{
-\item{l}{A data frame (the "left" side of the comparison).}
+\item{l, r}{Data frames to compare.}
 
-\item{r}{A data frame (the "right" side of the comparison).}
+\item{by}{How to match rows: a \code{\link[dplyr:join_by]{dplyr::join_by()}} object, a character
+vector of shared column names, or a named vector (\code{c(l = "r")}). \code{NULL}
+(default) compares rows by position.}
 
-\item{by}{How to match rows between \code{l} and \code{r}, as a \code{\link[dplyr:join_by]{dplyr::join_by()}}
-object (eg \code{join_by(id)} or \code{join_by(l_id == r_id)}), a character
-vector of column names that uniquely identify a row in both, or a named
-character vector for asymmetric names (names are \code{l} columns, values are
-\code{r} columns, eg \code{c(l_id = "r_id")}). Matched the same way as
-\code{left_join(l, r, by)}. If \code{NULL} (the default), rows are compared by
-position instead, which assumes both data frames are already in the same
-row order.}
+\item{digits}{Decimal places for numeric tolerance. Default \code{4}.}
 
-\item{.round}{Number of decimal places of tolerance to use when comparing
-numeric/integer columns. Differences smaller than \code{10^-.round} are
-treated as equal. Default is \code{4}. \code{roundDigits} and \code{round} are accepted
-as aliases.}
+\item{strings}{\code{"strict"} (default) or \code{"loose"} (lowercase and trim
+before comparing).}
 
-\item{.strings}{How to compare character columns. \code{"strict"} (the default)
-compares values exactly; \code{"loose"} compares after lowercasing and
-trimming whitespace, so case and leading/trailing spaces are ignored.}
+\item{factors}{\code{"as_strings"} (default) or \code{"as_factors"} (levels unioned
+across both sides before comparing).}
 
-\item{.factor}{How to compare factor columns. \code{"as_strings"} (the default)
-compares factor values as character; \code{"as_factors"} harmonises levels
-across \code{l} and \code{r} (union of both) and compares values as factors.}
+\item{raise_error}{Abort with the printed summary on differences. Default
+\code{FALSE}.}
 
-\item{.raise_error}{If \code{TRUE}, print a summary and throw an error when
-any differences are found (schema mismatches, unmatched keys, or value
-differences). Default is \code{FALSE}.}
+\item{ignore}{Columns skipped in value comparisons. Default \code{NULL}.}
 
-\item{.ignore}{Character vector of column names to exclude from value
-comparison entirely (eg columns expected to always differ, like an
-\code{updated_at} timestamp). Excluded columns can still appear in \code{schema}
-if their types mismatch.}
+\item{fn}{Applied to both frames before comparing. Default \verb{\\(d) d}.}
 
-\item{.fn}{A function to apply to both data frames before comparing
-(eg \code{\link[dplyr:arrange_all]{dplyr::arrange_all()}}). Executes after column names are forced to
-lower case and renaming, if any, by \code{by}.}
+\item{...}{Aliases.}
 }
 \value{
-A \code{kompare} object: a list with three elements, printable via
-\code{\link[=print.kompare]{print.kompare()}}/\code{\link[=summary.kompare]{summary.kompare()}} and coercible to a logical via
-\code{\link[=as.logical.kompare]{as.logical.kompare()}}.
-\describe{
-\item{\code{schema}}{A data frame of columns whose type differs between \code{l}
-and \code{r}, or that exist in only one of the two data frames.}
-\item{\code{keys}}{A data frame of key values that exist in only one of \code{l}
-or \code{r} (i.e. rows that couldn't be matched for comparison).}
-\item{\code{diffs}}{A named list, one element per shared data type (eg
-\code{"numeric"}, \code{"character"}), each containing a data frame of rows
-where values differ between \code{l} and \code{r} for columns of that type.
-Numeric columns are compared with tolerance \code{.round}; character
-columns are compared exactly unless \code{.strings = "loose"}; all
-other types are compared for exact equality. In every case, a value
-that is \code{NA} on one side and non-\code{NA} on the other also counts as a
-difference. Types with zero differences are omitted.}
-}
+A \code{kompare} list: \code{schema} (columns missing on one side or
+retyped), \code{keys} (rows with no match), and \code{diffs} (differing rows, by
+type). Prints as a summary and coerces to logical with \code{\link[=as.logical]{as.logical()}}.
 }
 \description{
-Compares two data frames for differences in schema (column names/types),
-keys (rows present in one but not the other), and values. Column names
-are matched case-insensitively, and compatible date/datetime columns are
-unified before comparison.
+Reports schema, key, and value differences between \code{l} and \code{r}.
 }
 \details{
-Only columns that share the same name (case-insensitive) and the same
-data type in both \code{l} and \code{r} are compared for value differences; columns
-that differ in type, or exist in only one data frame, are reported in
-\code{schema} instead and excluded from \code{diffs}. Factor columns are reported
-under their original type in \code{schema}.
-\code{POSIXct}/\code{POSIXlt} columns with no time-of-day component (i.e. every
-non-\code{NA} value falls at midnight) are converted to \code{Date} before
-comparison, with a message identifying the affected columns.
-
-If \code{by} is supplied, both \code{l} and \code{r} must have no duplicate rows with
-respect to those columns, or \code{kompare()} will error.
+Names are matched case-insensitively; only columns sharing name and type
+are compared for values. \code{POSIXct} columns at midnight become \code{Date}, with
+a message. \code{by} columns must be unique on each side. \code{print()} also
+reports matched rows and compared columns.
 }
 \examples{
-library(dplyr)
-l <- data.frame(id = 1:3, x = c(1, 2, 3), y = c("a", "b", "c"))
-r <- data.frame(id = 1:3, x = c(1, 2.5, 3), y = c("a", "B", "z"))
-
-result <- kompare(l, r, join_by(id))
-result$schema
-result$keys
-result$diffs
-
-# without by, rows are compared by position
-kompare(l, r)
-
-# ignore whitespace/case differences in strings
-kompare(l, r, join_by(id), .strings = "loose")
-
-# error immediately if any differences are found
-\dontrun{
-kompare(l, r, join_by(id), .raise_error = TRUE)
-}
+l <- tibble::tibble(id = 1:3, x = c(1, 2, 3))
+r <- tibble::tibble(id = 1:3, x = c(1, 2.5, 3))
+kompare(l, r, dplyr::join_by(id))
 
 }

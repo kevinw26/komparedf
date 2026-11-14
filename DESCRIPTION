@@ -17,14 +17,15 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 8.0.0
 Imports: 
     cli,
-    crayon,
     dplyr,
+    generics,
     glue,
     purrr,
     rlang,
     stringr,
     tibble,
-    tidyr
+    tidyr,
+    vctrs
 Suggests: 
     bit64,
     nanotime,

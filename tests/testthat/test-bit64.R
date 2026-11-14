@@ -11,7 +11,7 @@ test_that("kompare compares integer64 columns exactly", {
   r$notional[2] <- bit64::as.integer64("9007199254740995")
 
   out <- kompare(l, r, by = "id")
-  flagged <- out$diffs$integer64
+  flagged <- out$diffs$int64
 
   expect_equal(nrow(flagged), 1)
   expect_equal(flagged$id, 2)
