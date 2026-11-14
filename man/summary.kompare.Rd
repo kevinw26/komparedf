@@ -13,7 +13,9 @@
 \method{format}{kompare}(x, n = 5, ...)
 }
 \arguments{
-\item{object}{A \code{kompare} object.}
+\item{object, x}{A \code{kompare} object.}
+
+\item{n}{Number of rows to show.}
 
 \item{...}{Not used.}
 }

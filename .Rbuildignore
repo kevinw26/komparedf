@@ -1,3 +1,7 @@
 ^.*\.Rproj$
 ^\.Rproj\.user$
 ^LICENSE\.md$
+^\.idea$
+^AGENTS\.md$
+^df\.kompare_.*\.tar\.gz$
+^df\.kompare\.Rcheck$

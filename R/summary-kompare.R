@@ -136,7 +136,8 @@ f_num <- \(x) {
 #'
 #' Prints the difference report.
 #'
-#' @param object A `kompare` object.
+#' @param object,x A `kompare` object.
+#' @param n Number of rows to show.
 #' @param ... Not used.
 #'
 #' @return `object`, invisibly.
@@ -145,6 +146,7 @@ f_num <- \(x) {
 #' @importFrom glue glue
 #' @importFrom stringr str_c str_detect str_remove_all
 #' @importFrom purrr imap map_int
+#' @importFrom utils head capture.output
 #'
 #' @export
 summary.kompare <- \(object, n = 5, ...) {

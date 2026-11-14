@@ -1,6 +1,6 @@
-Package: df.kompare
+Package: komparedf
 Type: Package
-Title: df.kompare
+Title: Compare data frames diagnostically
 Version: 0.1.0
 Authors@R: c(
     person(
@@ -9,10 +9,10 @@ Authors@R: c(
       role = c("aut", "cre")
     )
   )
-Description: Compares two data frames' values
+Description: Compares two data frames for differences in schema, keys, and values.
 License: MIT + file LICENSE
 Encoding: UTF-8
-LazyData: true
+Depends: R (>= 4.1.0)
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 8.0.0
 Imports: 
@@ -20,6 +20,7 @@ Imports:
     dplyr,
     generics,
     glue,
+    lubridate,
     purrr,
     rlang,
     stringr,

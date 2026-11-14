@@ -1,3 +1,6 @@
+# names used in data masks and display helpers
+globalVariables(c(".env", ".l", ".r", ":=", "dt.l", "dt.r"))
+
 # reject names that clash with internal columns
 check_names <- \(d, name) {
   if (".rn" %in% names(d)) {
@@ -12,7 +15,7 @@ check_names <- \(d, name) {
 # lower-case names in a tidyselect expression so matching ignores case
 lower_selection <- \(expr) {
   if (is_symbol(expr)) return(sym(str_to_lower(as_string(expr))))
-  if (is_character(expr)) return(str_to_lower(expr))
+  if (is.character(expr)) return(str_to_lower(expr))
   if (is_call(expr)) return(as.call(map(as.list(expr), lower_selection)))
   expr
 }
@@ -99,13 +102,14 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' kompare(l, r, dplyr::join_by(id))
 #'
 #' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool enquo quo_get_expr quo_set_expr is_symbol is_call as_string
-#' @importFrom dplyr rename_with select all_of mutate row_number full_join inner_join filter distinct pull rename join_by cur_column ungroup
+#' @importFrom dplyr rename_with select all_of mutate across row_number full_join inner_join filter distinct pull rename join_by cur_column ungroup where
 #' @importFrom tidyr pivot_longer drop_na
 #' @importFrom purrr map map_chr map2 set_names discard
 #' @importFrom stringr str_to_lower str_c str_trim str_split_1 str_detect
 #' @importFrom glue glue
 #' @importFrom tibble tibble
 #' @importFrom stats na.omit
+#' @importFrom utils globalVariables
 #' @importFrom lubridate as_date hour minute second
 #' @importFrom vctrs vec_ptype_abbr vec_equal
 #'
