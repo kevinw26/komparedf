@@ -19,9 +19,15 @@ Imports:
     dplyr,
     glue,
     purrr,
+    rlang,
     stringr,
     tibble,
     tidyr
 Suggests: 
-    testthat (>= 3.0.0)
+    bit64,
+    nanotime,
+    openxlsx,
+    testthat (>= 3.0.0),
+    withr,
+    writexl
 Config/testthat/edition: 3
