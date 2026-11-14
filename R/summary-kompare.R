@@ -144,17 +144,19 @@ format.kompare <- \(x, n = 5, ...) {
 #' @param x A `kompare` object.
 #' @param ... Not used.
 #'
-#' @return A tibble of `type`, `col`, and `diffs`.
+#' @return A tibble of `type`, `col`, `diffs`, and `n` (observations
+#'   compared).
 #'
 #' @importFrom dplyr bind_rows
 #' @importFrom generics tidy
 #'
 #' @export
 tidy.kompare <- \(x, ...) {
+  n <- as.integer(attr(x, "compared")[["rows"]])
   x$diffs |>
     imap(\(d, type) {
       tab <- table(d[["col"]])
-      tibble::tibble(type = type, col = names(tab), diffs = as.integer(tab))
+      tibble::tibble(type = type, col = names(tab), diffs = as.integer(tab), n = n)
     }) |>
     bind_rows()
 }

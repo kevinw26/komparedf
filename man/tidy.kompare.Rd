@@ -12,7 +12,8 @@
 \item{...}{Not used.}
 }
 \value{
-A tibble of \code{type}, \code{col}, and \code{diffs}.
+A tibble of \code{type}, \code{col}, \code{diffs}, and \code{n} (observations
+compared).
 }
 \description{
 One row per column with value differences.

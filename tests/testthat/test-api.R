@@ -49,4 +49,5 @@ test_that("tidy gives per-column value counts", {
   expect_equal(out$type, c("dbl", "chr"))
   expect_equal(out$col, c("x", "y"))
   expect_equal(out$diffs, c(1L, 1L))
+  expect_equal(out$n, c(3L, 3L))
 })
