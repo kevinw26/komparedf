@@ -89,8 +89,8 @@ test_that("kompare flags unmatched keys", {
   l <- iris_base
   r <- iris_base |> filter(!between(id, 3, 15))
 
-  out <- kompare(l, r, keys = join_by(ID))
+  out <- kompare(l, r, keys = join_by(id))
 
   expect_equal(nrow(out$keys), 13)
-  expect_equal(out$keys |> pull(id), 7)
+  expect_equal(out$keys |> pull(id), 3:15)
 })
