@@ -1,4 +1,4 @@
-# df.kompare
+# komparedf
 
 Compare two data frames and report schema, key, and value differences.
 
