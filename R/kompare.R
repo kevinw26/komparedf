@@ -22,9 +22,9 @@ lower_selection <- \(expr) {
 
 # resolve ignore with tidyselect, lowering selections to match column names
 resolve_ignore_cols <- \(quo, l, r) {
-  cols <- union(names(l), names(r))
+  cols  <- union(names(l), names(r))
   proxy <- set_names(as.list(rep(0L, length(cols))), cols)
-  quo <- quo_set_expr(quo, lower_selection(quo_get_expr(quo)))
+  quo   <- quo_set_expr(quo, lower_selection(quo_get_expr(quo)))
   tidyselect::eval_select(quo, proxy, allow_rename = FALSE) |> names()
 }
 
@@ -39,7 +39,7 @@ validate_frame <- \(d, name) {
   if (ncol(d) == 0) {
     abort(glue("{name} must have at least one column"))
   }
-  d <- d |>
+  d     <- d |>
     ungroup() |>
     set_names(str_to_lower(names(d)))
   dupes <- names(d)[duplicated(names(d))]
@@ -167,7 +167,9 @@ kompare <- \(
       \(x) factor(x, levels = factor_lvls[[cur_column()]])
     ))
   }
+
   all_midnight <- \(x) all(hour(x) == 0 & minute(x) == 0 & second(x) == 0, na.rm = TRUE)
+
   date_cols <- \(d) d |>
     select(where(\(x) inherits_any(x, "POSIXt") && all_midnight(x))) |>
     names()
@@ -196,24 +198,28 @@ kompare <- \(
   # construct and validate by
   check_by_repeats <- \(x, side = NULL) {
     if (anyDuplicated(x) > 0) {
-      repeats <- x[duplicated(x)] |> unique() |> str_c(collapse = ", ")
-      where <- if (is.null(side)) "" else glue(" on the {side} side")
+      repeats <- x[duplicated(x)] |>
+        unique() |>
+        str_c(collapse = ", ")
+      where   <- if (is.null(side)) "" else glue(" on the {side} side")
       abort(glue("by repeats a column{where}: {repeats}"))
     }
   }
+
   check_by_exists <- \(x, cols, side) {
     missing <- setdiff(x, cols)
     if (length(missing) > 0) {
       abort(glue("by columns missing from {side}: {str_c(missing, collapse = ', ')}"))
     }
   }
+
   check_by_types <- \(l, r, by, origin = "by columns must have compatible types in l and r") {
     ok <- map_lgl(by, \(col) {
       try_fetch(
-        {
-          vec_ptype_common(l[[col]], r[[col]])
-          TRUE
-        },
+      {
+        vec_ptype_common(l[[col]], r[[col]])
+        TRUE
+      },
         error = \(cnd) FALSE
       )
     })
@@ -221,7 +227,10 @@ kompare <- \(
       abort(glue("{origin}: {str_c(by[!ok], collapse = ', ')}"))
     }
   }
-  if (!is.null(by) && !is.character(by) && !inherits_any(by, "dplyr_join_by")) {
+
+  if (!is.null(by) &&
+    !is.character(by) &&
+    !inherits_any(by, "dplyr_join_by")) {
     abort("by must be NULL, a character vector, or a dplyr::join_by() object")
   }
   if (is.character(by)) { # parse by into join_by, if is character
@@ -247,8 +256,8 @@ kompare <- \(
       conditions <- str_c(unique(by$condition), collapse = ", ")
       abort(glue("by must contain only equality conditions (==), not: {conditions}"))
     }
-    by_l <- by$x |> str_to_lower()
-    by_r <- by$y |> str_to_lower()
+    by_l     <- by$x |> str_to_lower()
+    by_r     <- by$y |> str_to_lower()
     reserved <- intersect(union(by_l, by_r), c("col", ".l", ".r"))
     if (length(reserved) > 0) {
       abort(glue("by cannot use reserved column names: {str_c(reserved, collapse = ', ')}"))
@@ -267,7 +276,7 @@ kompare <- \(
       ))
     }
 
-    r <- r |> rename(!!!set_names(by_r, by_l))
+    r  <- r |> rename(!!!set_names(by_r, by_l))
     by <- by_l
   }
 
@@ -275,6 +284,7 @@ kompare <- \(
   if (!is.function(fn)) {
     abort("fn must be a function")
   }
+
   apply_fn <- \(d, side) {
     out <- fn(d)
     if (!is.data.frame(out)) {
@@ -287,6 +297,7 @@ kompare <- \(
     }
     out
   }
+
   l <- apply_fn(l, "l")
   r <- apply_fn(r, "r")
   if (!is.null(by)) {
@@ -299,19 +310,20 @@ kompare <- \(
 
   # assign row number if necessary; check for key duplicates
   has_key_dupes <- \(d) any(d |> select(all_of(by)) |> duplicated())
+
   format_dupes <- \(d) {
     k <- d |> select(all_of(by))
     k <- k[duplicated(k), , drop = FALSE] |> head(3)
     map_chr(seq_len(nrow(k)), \(i) {
-      str_c(unlist(k[i, ], use.names = FALSE), collapse = "/")
+      str_c(unlist(k[i,], use.names = FALSE), collapse = "/")
     }) |>
       str_c(collapse = ", ")
   }
 
   n_cols <- c(ncol(l), ncol(r))
   if (is.null(by)) {
-    l <- l |> mutate(.rn = row_number())
-    r <- r |> mutate(.rn = row_number())
+    l  <- l |> mutate(.rn = row_number())
+    r  <- r |> mutate(.rn = row_number())
     by <- ".rn"
   } else {
     if (has_key_dupes(l)) {
@@ -330,14 +342,18 @@ kompare <- \(
 
   # find mismatching data types and factors
   lvl_mismatch <- if (factors == "as_factors") {
-    l |> select(where(is.factor)) |> names() |>
+    l |>
+      select(where(is.factor)) |>
+      names() |>
       intersect(r |> select(where(is.factor)) |> names()) |>
       discard(\(col) identical(levels(l[[col]]), levels(r[[col]])))
   } else character()
+
   col_type <- \(d, col) {
     tag <- if (col %in% lvl_mismatch) str_c("[", str_c(levels(d[[col]]), collapse = ","), "]") else ""
     str_c(vec_ptype_abbr(d[[col]]), tag)
   }
+
   dt <- full_join(
     tibble(col = names(l), dt.l = map_chr(names(l), \(col) col_type(l, col))),
     tibble(col = names(r), dt.r = map_chr(names(r), \(col) col_type(r, col))),
@@ -346,7 +362,10 @@ kompare <- \(
     filter(!col %in% by)
 
   # warn if data is very large
-  compared_cols <- dt |> filter(dt.l == dt.r) |> pull(col) |> setdiff(ignore)
+  compared_cols <- dt |>
+    filter(dt.l == dt.r) |>
+    pull(col) |>
+    setdiff(ignore)
   check_cells(l, r, compared_cols)
 
   # construct diffs by type
@@ -357,12 +376,20 @@ kompare <- \(
     }
     !vec_equal(x, y, na_equal = TRUE)
   }
-  d_types <- na.omit(dt |> filter(dt.l == dt.r) |> distinct(dt.l) |> drop_na() |> pull())
-  diffs <- d_types |>
+
+  d_types <- na.omit(dt |>
+                       filter(dt.l == dt.r) |>
+                       distinct(dt.l) |>
+                       drop_na() |>
+                       pull())
+  diffs   <- d_types |>
     map(\(type) {
       cols <- na.omit(
-        dt |> filter(dt.l == type & dt.r == type) |> pull(col) |>
-          setdiff(by) |> setdiff(ignore)
+        dt |>
+          filter(dt.l == type & dt.r == type) |>
+          pull(col) |>
+          setdiff(by) |>
+          setdiff(ignore)
       )
       if (length(cols) == 0) return(tibble())
 
@@ -379,11 +406,13 @@ kompare <- \(
         if (sf_trim) s <- str_trim(s)
         s
       }
+
       differs <- \(x, y) {
         if (type %in% c("dbl", "int")) return(neq(round(x, digits), round(y, digits)))
         if (type == "chr") return(neq(clean_str(x), clean_str(y)))
         neq(x, y)
       }
+
       mask <- cols |>
         set_names(cols) |>
         map(\(col) differs(comp[[str_c(col, "\x1f.l")]], comp[[str_c(col, "\x1f.r")]]))
@@ -401,8 +430,8 @@ kompare <- \(
             comp[rows, by, drop = FALSE],
             tibble(
               col = col,
-              .l = take(comp[[nm_l]]),
-              .r = take(comp[[nm_r]])
+              .l  = take(comp[[nm_l]]),
+              .r  = take(comp[[nm_r]])
             )
           )
         }) |>
@@ -412,21 +441,21 @@ kompare <- \(
     discard(\(d) nrow(d) == 0)
 
   # rows present on only one side
-  l_keys <- l |> select(all_of(by))
-  r_keys <- r |> select(all_of(by))
+  l_keys    <- l |> select(all_of(by))
+  r_keys    <- r |> select(all_of(by))
   unmatched <- bind_rows(
-    l_keys[!vec_in(l_keys, r_keys), ] |> mutate(.l = TRUE, .r = NA),
-    r_keys[!vec_in(r_keys, l_keys), ] |> mutate(.l = NA, .r = TRUE)
+    l_keys[!vec_in(l_keys, r_keys),] |> mutate(.l = TRUE, .r = NA),
+    r_keys[!vec_in(r_keys, l_keys),] |> mutate(.l = NA, .r = TRUE)
   )
 
   # make summary
   summ <- structure(
     list(
       "schema" = dt |> filter(is.na(dt.l) | is.na(dt.r) | dt.l != dt.r),
-      "keys" = unmatched,
-      "diffs" = diffs
+      "keys"   = unmatched,
+      "diffs"  = diffs
     ),
-    dims = c(nrow(l), nrow(r)),
+    dims     = c(nrow(l), nrow(r)),
     compared = c(
       rows = (nrow(l) + nrow(r) - nrow(unmatched)) / 2,
       cols = length(compared_cols) + length(setdiff(by, ignore))
@@ -435,16 +464,16 @@ kompare <- \(
       environment(),
       c("by", "digits", "strings", "factors", "ignore", "n_cols")
     ),
-    class = "kompare"
+    class    = "kompare"
   )
 
   if (!is_equal(summ) && raise_error) {
     abort(
       "kompare found differences between l and r",
       class = "kompare_error",
-      obj = summ,
-      body = .format_kompare(summ) |> str_c(collapse = "\n"),
-      call = NULL
+      obj   = summ,
+      body  = .format_kompare(summ) |> str_c(collapse = "\n"),
+      call  = NULL
     )
   }
   return(summ)
