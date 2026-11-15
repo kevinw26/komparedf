@@ -21,8 +21,10 @@ is_validly_atomic <- \(l, r, cols) {
 #' @param l,r Data frames.
 #' @param by Character vector of shared column names; extended, not replaced.
 #'   `join_by()` objects and key renaming are rejected.
-#' @param max_add Maximum number of columns to add to `by`.
-#' @param max_candidates Maximum number of candidate columns to consider.
+#' @param max_add Maximum number of columns to add to `by`; a single
+#'   non-negative integer.
+#' @param max_candidates Maximum number of candidate columns to consider; a
+#'   single non-negative integer.
 #'
 #' @return An unnamed character vector naming one key: a unique single column
 #'   if available, otherwise a composite extending `by`, not necessarily the
@@ -54,6 +56,10 @@ suggest_kompare_keys <- \(l, r, by = character(), max_add = 5, max_candidates = 
   check_by_values(by)
   check_by_exists(by, names(l), "l")
   check_by_exists(by, names(r), "r")
+  check_by_repeats(by, by)
+  check_by_types(l, r, by)
+  max_add <- check_count(max_add, "max_add")
+  max_candidates <- check_count(max_candidates, "max_candidates")
 
   candidates <- intersect(names(l), names(r)) |>
     setdiff(by) |>

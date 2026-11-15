@@ -60,6 +60,33 @@ test_that("suggest_kompare_keys validates inputs", {
     suggest_kompare_keys(l, l, by = ""),
     "by must not be NA or empty"
   )
+  expect_error(
+    suggest_kompare_keys(l, l, by = c("id", "id")),
+    "by repeats a column"
+  )
+
+  list_col <- tibble::tibble(id = list(1, 2), x = 1:2)
+  expect_error(
+    suggest_kompare_keys(list_col, list_col, by = "id"),
+    "by columns must be atomic"
+  )
+
+  expect_error(
+    suggest_kompare_keys(l, l, by = "id", max_add = NA),
+    "max_add must be a single non-negative integer"
+  )
+  expect_error(
+    suggest_kompare_keys(l, l, by = "id", max_add = -1),
+    "max_add must be a single non-negative integer"
+  )
+  expect_error(
+    suggest_kompare_keys(l, l, by = "id", max_add = 2.5),
+    "max_add must be a single non-negative integer"
+  )
+  expect_error(
+    suggest_kompare_keys(l, l, by = "id", max_candidates = NA),
+    "max_candidates must be a single non-negative integer"
+  )
 })
 
 test_that("duplicate key errors note distinctness", {

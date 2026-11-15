@@ -86,7 +86,7 @@ test_that("validate_frame rejects missing and empty names", {
   empty_name <- data.frame(id = 1, x = 2)
   names(empty_name) <- c("id", "")
 
-  expect_error(validate_frame(na_name, "l"), "l has missing column names")
+  expect_error(validate_frame(na_name, "l"), "l has NA column names")
   expect_error(validate_frame(empty_name, "r"), "r has empty column names")
 })
 

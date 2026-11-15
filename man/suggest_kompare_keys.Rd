@@ -12,9 +12,11 @@ suggest_kompare_keys(l, r, by = character(), max_add = 5, max_candidates = 20)
 \item{by}{Character vector of shared column names; extended, not replaced.
 \code{join_by()} objects and key renaming are rejected.}
 
-\item{max_add}{Maximum number of columns to add to \code{by}.}
+\item{max_add}{Maximum number of columns to add to \code{by}; a single
+non-negative integer.}
 
-\item{max_candidates}{Maximum number of candidate columns to consider.}
+\item{max_candidates}{Maximum number of candidate columns to consider; a
+single non-negative integer.}
 }
 \value{
 An unnamed character vector naming one key: a unique single column

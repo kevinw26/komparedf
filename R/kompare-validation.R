@@ -25,6 +25,14 @@ check_frame <- \(x, name) {
   invisible(x)
 }
 
+# reject negative, fractional, or non-finite counts
+check_count <- \(x, name) {
+  if (!is_scalar_integerish(x) || !is.finite(x) || x < 0) {
+    abort(glue("{name} must be a single non-negative integer"))
+  }
+  as.integer(x)
+}
+
 # reject repeated by columns on either side
 check_by_repeats <- \(lhs, rhs) {
   check_side <- \(x, side) {
