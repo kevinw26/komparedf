@@ -35,7 +35,30 @@ test_that("suggest_kompare_keys returns single and composite keys", {
   none <- tibble::tibble(id = c(1, 1), grp = c("a", "a"))
   expect_error(
     suggest_kompare_keys(none, none, by = "id"),
-    "no obvious unique key found in the top 10"
+    "no obvious unique key found in the top 20"
+  )
+})
+
+test_that("suggest_kompare_keys validates inputs", {
+  l <- tibble::tibble(id = 1)
+
+  expect_error(suggest_kompare_keys(1:3, l, by = "id"), "l must be a data frame")
+  expect_error(suggest_kompare_keys(l, 1:3, by = "id"), "r must be a data frame")
+  expect_error(
+    suggest_kompare_keys(l, l, by = "x"),
+    "by columns missing from l: x"
+  )
+  expect_error(
+    suggest_kompare_keys(l, tibble::tibble(x = 1), by = "id"),
+    "by columns missing from r: id"
+  )
+  expect_error(
+    suggest_kompare_keys(l, l, by = NA_character_),
+    "by must not be NA or empty"
+  )
+  expect_error(
+    suggest_kompare_keys(l, l, by = ""),
+    "by must not be NA or empty"
   )
 })
 

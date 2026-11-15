@@ -1,28 +1,9 @@
 # names used in data masks and display helpers
 globalVariables(c(".env", ".l", ".r", ":=", "dt.l", "dt.r"))
 
-# reject names that clash with internal columns
-check_names <- \(d, name) {
-  if (".rn" %in% names(d)) {
-    abort(glue("{name} has a reserved column name: .rn"))
-  }
-  if (any(str_detect(names(d), "\x1f"))) {
-    abort(glue("{name} has a column name containing the unit separator (\\x1f)"))
-  }
-  invisible(d)
-}
-
 # check a frame, lower-case its names, reject duplicates the lowercasing creates
 validate_frame <- \(d, name) {
-  if (!is.data.frame(d)) {
-    abort(glue("{name} must be a data frame, not {class(d)[1]}"))
-  }
-  if (nrow(d) == 0) {
-    abort(glue("{name} must not be empty"))
-  }
-  if (ncol(d) == 0) {
-    abort(glue("{name} must have at least one column"))
-  }
+  check_frame(d, name)
   if (inherits(d, "data.table")) {
     warn(glue("{name} is a data table; memory-intensive conversion to tibble"))
   }
@@ -38,7 +19,6 @@ validate_frame <- \(d, name) {
       name = name, cols = cols
     ))
   }
-  check_names(d, name)
   d
 }
 
@@ -167,45 +147,6 @@ kompare <- \(
   }
 
   # construct and validate by
-  check_by_repeats <- \(x, side = NULL) {
-    if (anyDuplicated(x) > 0) {
-      repeats <- x[duplicated(x)] |>
-        unique() |>
-        str_c(collapse = ", ")
-      where <- if (is.null(side)) "" else glue(" on the {side} side")
-      abort(glue("by repeats a column{where}: {repeats}"))
-    }
-  }
-
-  check_by_exists <- \(x, cols, side) {
-    missing <- setdiff(x, cols)
-    if (length(missing) > 0) {
-      abort(glue("by columns missing from {side}: {str_c(missing, collapse = ', ')}"))
-    }
-  }
-
-  check_by_types <- \(l, r, by, origin = "by columns must have compatible types in l and r") {
-    non_atomic <- discard(by, \(col) is.atomic(l[[col]]) && is.atomic(r[[col]]))
-    if (length(non_atomic) > 0) {
-      abort(glue(
-        "by columns must be atomic, not list or other recursive types: ",
-        "{str_c(non_atomic, collapse = ', ')}"
-      ))
-    }
-    ok <- map_lgl(by, \(col) {
-      try_fetch(
-        {
-          vec_ptype_common(l[[col]], r[[col]])
-          TRUE
-        },
-        error = \(cnd) FALSE
-      )
-    })
-    if (!all(ok)) {
-      abort(glue("{origin}: {str_c(by[!ok], collapse = ', ')}"))
-    }
-  }
-
   if (!is.null(by) &&
     !is.character(by) &&
     !inherits_any(by, "dplyr_join_by")) {
@@ -224,9 +165,7 @@ kompare <- \(
       lhs <- names(by)
       rhs <- unname(by)
     }
-    if (anyNA(lhs) || anyNA(rhs) || any(c(lhs, rhs) == "")) {
-      abort("by columns must not be NA or empty strings")
-    }
+    check_by_values(c(lhs, rhs))
     by <- join_by(!!!map2(lhs, rhs, \(x, y) expr(!!sym(x) == !!sym(y))))
   }
 
@@ -244,8 +183,7 @@ kompare <- \(
       abort(glue("by cannot use reserved column names: {str_c(reserved, collapse = ', ')}"))
     }
 
-    check_by_repeats(by_l, "l")
-    check_by_repeats(by_r, "r")
+    check_by_repeats(by_l, by_r)
     check_by_exists(by_l, names(l), "l")
     check_by_exists(by_r, names(r), "r")
 
@@ -315,7 +253,7 @@ kompare <- \(
   has_key_dupes <- \(d) any(d |> select(all_of(by)) |> duplicated())
 
   abort_dupes <- \(d, side) {
-    found <- try_suggest_kompare_keys(l, r, by)
+    found <- try_suggest_kompare_keys(l, r, by, max_add = 3, max_candidates = 10)
     message <- glue(
       "by {str_c(by, collapse = ', ')} is not distinct in {side}; ",
       "row-by-row comparison requires distinct keys"

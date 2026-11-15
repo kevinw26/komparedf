@@ -80,6 +80,16 @@ test_that("base data frames compare with a single key", {
   expect_true(as.logical(kompare(l, l)))
 })
 
+test_that("validate_frame rejects missing and empty names", {
+  na_name <- data.frame(id = 1, x = 2)
+  names(na_name) <- c("id", NA)
+  empty_name <- data.frame(id = 1, x = 2)
+  names(empty_name) <- c("id", "")
+
+  expect_error(validate_frame(na_name, "l"), "l has missing column names")
+  expect_error(validate_frame(empty_name, "r"), "r has empty column names")
+})
+
 test_that("validate_frame rejects names that collide after lowercasing", {
   d <- tibble::tibble(Id = 1, id = 2, .name_repair = "minimal")
   expect_error(validate_frame(d, "l"), "l has duplicate column names after lowercasing")

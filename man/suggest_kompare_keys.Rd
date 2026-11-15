@@ -4,7 +4,7 @@
 \alias{suggest_kompare_keys}
 \title{Suggest keys for kompare}
 \usage{
-suggest_kompare_keys(l, r, by = character(), max_add = 5)
+suggest_kompare_keys(l, r, by = character(), max_add = 5, max_candidates = 20)
 }
 \arguments{
 \item{l, r}{Data frames.}
@@ -13,18 +13,22 @@ suggest_kompare_keys(l, r, by = character(), max_add = 5)
 \code{join_by()} objects and key renaming are rejected.}
 
 \item{max_add}{Maximum number of columns to add to \code{by}.}
+
+\item{max_candidates}{Maximum number of candidate columns to consider.}
 }
 \value{
-A character vector naming the shortest unique key found.
+An unnamed character vector naming one key: a unique single column
+if available, otherwise a composite extending \code{by}, not necessarily the
+shortest.
 }
 \description{
 Suggests shared columns that uniquely identify rows in both \code{l} and \code{r}.
 }
 \details{
 Candidates are shared, atomic, type-compatible, non-constant columns,
-limited to the 10 with the highest weaker-side cardinality. A single column
-is returned if possible; otherwise a key is grown greedily from \code{by}. The
-search is not exhaustive.
+limited to \code{max_candidates} with the highest weaker-side cardinality. A
+single column is returned if possible; otherwise a key is grown greedily from
+\code{by}. The search is not exhaustive.
 }
 \examples{
 l <- tibble::tibble(id = c(1, 1, 2, 2), grp = c("a", "b", "a", "b"))
