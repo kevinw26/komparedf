@@ -71,3 +71,10 @@ test_that("the representation guard scales with magnitude", {
 
   expect_length(kompare(l, r, by = "id", digits = 2)$diffs, 0)
 })
+
+test_that("the representation guard does not hide representable differences", {
+  l <- tibble::tibble(id = 1, x = 1e16)
+  r <- tibble::tibble(id = 1, x = 1e16 + 2)
+
+  expect_equal(nrow(kompare(l, r, by = "id")$diffs$dbl), 1)
+})

@@ -39,6 +39,24 @@ test_that("format returns lines without printing", {
   expect_true(any(str_detect(txt, "all match")))
 })
 
+test_that("format preserves dates and datetimes", {
+  l <- tibble::tibble(
+    id = 1,
+    date = as.Date("2020-01-01"),
+    time = as.POSIXct("2020-01-01 01:00:00", tz = "UTC")
+  )
+  r <- tibble::tibble(
+    id = 1,
+    date = as.Date("2020-01-02"),
+    time = as.POSIXct("2020-01-01 02:00:00", tz = "UTC")
+  )
+
+  expect_no_error(txt <- format(kompare(l, r, by = "id")))
+  expect_true(any(str_detect(txt, "2020-01-02")))
+  expect_true(any(str_detect(txt, "01:00:00")))
+  expect_true(any(str_detect(txt, "02:00:00")))
+})
+
 test_that("tidy gives per-column value counts", {
   l <- tibble::tibble(id = 1:3, x = c(1, 2, 3), y = c("a", "b", "c"))
   r <- tibble::tibble(id = 1:4, x = c(1, 9, 3, 4), y = c("a", "B", "c", "d"))

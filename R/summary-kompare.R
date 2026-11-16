@@ -14,8 +14,11 @@ f_num <- \(x) {
   .glue("  {lines}")
 }
 
-# pillar-rendered text for a column
-.shaft <- \(x) str_trim(format(pillar_shaft(x), width = 1000))
+# pillar-rendered text; integer64 needs its own exact formatter
+.shaft <- \(x) {
+  if (inherits(x, "integer64")) return(str_trim(format(x)))
+  str_trim(format(pillar_shaft(x), width = 1000))
+}
 
 # pillar text for one cell: scalars plain, wider cells clipped to six values
 .cell_values <- \(v) {
@@ -46,9 +49,9 @@ f_num <- \(x) {
   as.integer(n)
 }
 
-# format numeric cells to the comparison precision
+# format plain doubles; classed doubles need their own pillar methods
 .display <- \(v, digits) {
-  if (is.null(digits) || !is.double(v)) return(v)
+  if (is.null(digits) || !is.double(v) || is.object(v)) return(v)
   pillar::num(v, digits = digits)
 }
 

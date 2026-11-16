@@ -18,6 +18,17 @@ test_that("kompare compares integer64 columns exactly", {
   expect_equal(as.character(flagged$.r), "9007199254740995")
 })
 
+test_that("kompare prints integer64 differences exactly", {
+  skip_if_not_installed("bit64")
+
+  l <- tibble::tibble(id = 1, x = bit64::as.integer64("9007199254740993"))
+  r <- tibble::tibble(id = 1, x = bit64::as.integer64("9007199254740995"))
+
+  expect_no_warning(txt <- format(kompare(l, r, by = "id")))
+  expect_true(any(str_detect(txt, "9007199254740993")))
+  expect_true(any(str_detect(txt, "9007199254740995")))
+})
+
 test_that("kompare treats equal integer64 columns as matching", {
   skip_if_not_installed("bit64")
 

@@ -307,3 +307,14 @@ test_that("all-NA datetime columns are not coerced to date", {
   expect_equal(nrow(out$schema), 0)
   expect_equal(nrow(out$diffs$dttm), 1)
 })
+
+test_that("midnight on one side does not hide a time component on the other", {
+  l <- tibble(id = 1, dt = as.POSIXct("2020-01-01 00:00:00", tz = "UTC"))
+  r <- tibble(id = 1, dt = as.POSIXct("2020-01-01 12:00:00", tz = "UTC"))
+
+  value_out <- suppressMessages(kompare(l, r, by = "id"))
+  key_out <- suppressMessages(kompare(l, r, by = "dt"))
+
+  expect_equal(nrow(value_out$diffs$dttm), 1)
+  expect_equal(nrow(key_out$keys), 2)
+})
