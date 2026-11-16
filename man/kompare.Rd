@@ -27,7 +27,9 @@ vector of shared column names, or a named vector (\code{c(l = "r")}). \code{NULL
 (default) compares rows by position.}
 
 \item{digits}{Decimal places for numeric tolerance, between -22 and 22.
-Default \code{4}.}
+Default \code{4}. \code{NULL} compares exactly, without tolerance. Double columns
+whose unit in the last place exceeds the tolerance warn that the
+requested precision is below the data's resolution.}
 
 \item{strings}{\code{"strict"} (default) or a \verb{_}-joined combination of
 \code{"ignorecase"} and \code{"trim"}, in any order (e.g. \code{"ignorecase_trim"}).}
@@ -55,19 +57,26 @@ type). Prints as a summary and coerces to logical with \code{\link[=as.logical]{
 Reports schema, key, and value differences between \code{l} and \code{r}.
 }
 \details{
-Names are matched case-insensitively; only columns sharing name and type
-are compared for values. With \code{factors = "as_factors"}, factor columns
-whose levels differ in set or order land in \code{schema}, with their level
-definitions shown. \code{POSIXct} columns at midnight become \code{Date}, with a
-message. \code{by} columns must be unique on each side. \code{NA} values in \code{by}
-columns match one another, so rows with missing keys are paired; \code{NaN}
-values compare equal to each other and \code{Inf} compares normally. \code{print()}
-also reports matched rows and compared columns.
+Names are matched case-insensitively via lowercasing; frames with columns
+that clash after lowercasing trigger an error. Only columns sharing name
+and type are compared for values. With \code{factors = "as_factors"}, factor
+levels are treated as metadata and differing levels land in \code{schema}.
+Identically named \code{Date} and \code{POSIXct} columns at midnight on both sides
+become \code{Date} to avoid false differences between date-like and time-like
+storage. \code{by} columns must be unique on each side. \code{NA} values in \code{by}
+columns match one another so that rows with missing keys are paired rather
+than reported as unmatched. \code{NaN} values compare equal and \code{Inf} compares
+normally. The optional function \code{fn} is applied before validation; it must
+preserve any columns specified in \code{by}. Numeric differences are tolerated
+up to half a unit in the \code{digits} decimal place, compared against the stored
+gap. \code{dbl} columns warn when their resolution is coarser than that
+tolerance; integers need no representation allowance. \code{print()} also reports
+matched rows and compared columns.
 }
 \section{Error conditions}{
 
-\code{raise_error = TRUE} gives \code{kompare_error} with \code{body} and \code{obj}.
-\code{kompare_dupes_error} may suggest unique comparison key if quickly found.
+\code{raise_error = TRUE} gives \code{kompare_error} with \code{body} and \code{obj}. \code{kompare_dupes_error}
+may suggest unique comparison key if quickly found.
 }
 
 \examples{

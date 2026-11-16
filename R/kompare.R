@@ -40,7 +40,8 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #'   vector of shared column names, or a named vector (`c(l = "r")`). `NULL`
 #'   (default) compares rows by position.
 #' @param digits Decimal places for numeric tolerance, between -22 and 22.
-#'   Default `4`. `NULL` compares exactly, without rounding.
+#'   Default `4`. `NULL` compares exactly, without tolerance. If digits
+#'   requested require precision greater than available, a warning is emitted.
 #' @param strings `"strict"` (default) or a `_`-joined combination of
 #'   `"ignorecase"` and `"trim"`, in any order (e.g. `"ignorecase_trim"`).
 #' @param factors `"as_strings"` (default) or `"as_factors"` (compared as
@@ -69,7 +70,9 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' than reported as unmatched. `NaN` values compare equal and `Inf` compares
 #' normally. The optional function `fn` is applied before validation; it must
 #' preserve any columns specified in `by`. Numeric differences are tolerated
-#' up to half a unit in the `digits` decimal place. `print()` also reports
+#' up to half a unit in the `digits` decimal place, compared against the stored
+#' gap. `dbl` columns warn when their resolution is coarser than that
+#' tolerance; integers need no representation allowance. `print()` also reports
 #' matched rows and compared columns.
 #'
 #' @section Error conditions:
@@ -344,15 +347,27 @@ kompare <- \(
         s
       }
 
-      differs <- \(x, y) {
+      differs <- \(x, y, col) {
         if (type %in% c("dbl", "int")) {
           if (is.null(digits)) return(neq(x, y))
           xn <- as.numeric(x)
           yn <- as.numeric(y)
+          tol <- 10^-digits / 2
+
+          # warn when the data's resolution is coarser than the tolerance
+          if (type == "dbl") {
+            vals <- c(xn, yn) |> keep(is.finite)
+            v <- vals[which.max(abs(vals))]
+            if (length(v) > 0 && numeric_ulp(v) > tol) {
+              warn(glue(
+                "column {col} has a value {f_num(v)}; floating point representation is less ",
+                "accurate than requested tolerance {format(tol, scientific = TRUE)}"))
+            }
+          }
+
           ex <- !vec_equal(x, y, na_equal = TRUE)  # exact equality, NA and NaN included
           rg <- abs(xn - yn)  # raw gap at the tolerance scale
-          guard <- ulp_guard(xn, yn)  # 1.5 ulp of the coarser operand
-          return(ex & (is.na(rg) | rg > 10^-digits / 2 + guard))  # inclusive at half a unit
+          return(ex & (is.na(rg) | rg > tol))
         }
         if (type == "chr") return(neq(clean_str(x), clean_str(y)))
         neq(x, y)
@@ -360,7 +375,7 @@ kompare <- \(
 
       mask <- cols |>
         set_names(cols) |>
-        map(\(col) differs(comp[[str_c(col, "\x1f.l")]], comp[[str_c(col, "\x1f.r")]]))
+        map(\(col) differs(comp[[str_c(col, "\x1f.l")]], comp[[str_c(col, "\x1f.r")]], col))
 
       # locate differing cells from the masks, then pull only those cells;
       # no pivot, so cost scales with differences rather than cells

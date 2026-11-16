@@ -7,4 +7,3 @@
 - Customizable string comparison with `ignorecase` and `trim` options
 - Smart handling of factors and automatic conversion of midnight `POSIXct` to `Date`
 - Integrated results with `tidy()` output, `summary()` reports, and `raise_error` support
-

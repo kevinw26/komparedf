@@ -56,25 +56,28 @@ test_that("values either side of a rounding midpoint match", {
   expect_length(kompare(l, r, by = "id", digits = 2)$diffs, 0)
 })
 
-test_that("gaps of half a unit match regardless of representation error", {
-  # both gaps are nominally 0.005, but binary error leaves one a hair above
+test_that("binary error above half a unit is reported", {
+  # a fixed ulp guard hid differences above tol once ulp approached tol, such
+  # as 1e16 vs 1e16 + 2; the intended decimal value cannot be recovered from
+  # the stored double, so the stored gap is compared to tol directly; ulp only
+  # warns when representation is coarser than the requested tolerance
   l <- tibble::tibble(id = 1:2, x = c(0.125, 0.1))
   r <- tibble::tibble(id = 1:2, x = c(0.13, 0.105))
 
-  expect_length(kompare(l, r, by = "id", digits = 2)$diffs, 0)
+  flagged <- kompare(l, r, by = "id", digits = 2)$diffs$dbl
+  expect_equal(flagged$id, 1)
 })
 
-test_that("the representation guard scales with magnitude", {
-  # ulp near 1e9 is 2^-23, so the same nominal gap wobbles by ~1e-7
-  l <- tibble::tibble(id = 1:2, x = 1000000000)
-  r <- tibble::tibble(id = 1:2, x = c(1000000000.005, 1000000000.005000114))
-
-  expect_length(kompare(l, r, by = "id", digits = 2)$diffs, 0)
-})
-
-test_that("the representation guard does not hide representable differences", {
+test_that("representable differences are reported", {
+  # ulp at 1e16 is 2, far above tol = 5e-5; warn because the requested
+  # precision is below the data's resolution; the one-ulp gap is exactly
+  # representable, so it is reported rather than absorbed by a guard
   l <- tibble::tibble(id = 1, x = 1e16)
   r <- tibble::tibble(id = 1, x = 1e16 + 2)
 
-  expect_equal(nrow(kompare(l, r, by = "id")$diffs$dbl), 1)
+  expect_warning(
+    out <- kompare(l, r, by = "id"),
+    "floating point representation is less accurate"
+  )
+  expect_equal(nrow(out$diffs$dbl), 1)
 })
