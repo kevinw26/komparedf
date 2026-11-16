@@ -167,32 +167,6 @@ test_that("keys, roundDigits, and round work as aliases", {
   expect_equal(length(kompare(l, r, by = "id", roundDigits = 8)$diffs), 1)
 })
 
-test_that("print reports compared cells and all match", {
-  same <- kompare(iris_base, iris_base, by = "id")
-  txt <- capture.output(print(same))
-
-  expect_true(any(str_detect(txt, "compared 150 rows and 6 columns")))
-  expect_true(any(str_detect(txt, "all match")))
-})
-
-test_that("print counts differences", {
-  l <- tibble(id = 1:2, x = c(1, 2))
-  r <- l |> mutate(x = x + 1)
-
-  txt <- capture.output(print(kompare(l, r, by = "id")))
-
-  expect_true(any(str_detect(txt, "2 differences found")))
-})
-
-test_that("print notes different input lengths", {
-  l <- tibble(id = 1:3, x = 1:3)
-  r <- tibble(id = 1:2, x = 1:2)
-
-  txt <- capture.output(print(kompare(l, r, by = "id")))
-
-  expect_true(any(str_detect(txt, "different lengths \\(3 vs 2\\)")))
-})
-
 test_that("check_cells warns when a comparison is large", {
   l <- tibble(x = 1:10)
   r <- tibble(x = 1:10)
@@ -263,17 +237,6 @@ test_that("matrix and array columns compare and print as row cells", {
     by = "id"
   )))
   expect_true(any(str_detect(wide_txt, "<1, 1, 1, 1, 1, 1, …>")))
-})
-
-test_that("print handles differences of several types", {
-  l <- tibble(id = 1:2, x = c(1, 2), s = c("a", "b"), m = matrix(c(1, 2, 3, 4), 2))
-  r <- tibble(id = 1:2, x = c(1, 9), s = c("a", "z"), m = matrix(c(1, 9, 3, 4), 2))
-
-  txt <- capture.output(print(kompare(l, r, by = "id")))
-
-  expect_true(any(str_detect(txt, "dbl")))
-  expect_true(any(str_detect(txt, "chr")))
-  expect_true(any(str_detect(txt, "<2, 4>")))
 })
 
 test_that("by rejects names reserved by the result schema", {

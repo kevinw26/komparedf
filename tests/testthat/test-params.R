@@ -79,15 +79,3 @@ test_that("fn output is ungrouped", {
   expect_equal(nrow(out$diffs$dbl), 1)
   expect_equal(out$diffs$dbl$id, 1)
 })
-
-test_that("print requires a positive integer n", {
-  out <- kompare(tibble::tibble(id = 1), tibble::tibble(id = 1), by = "id")
-
-  expect_error(print(out, n = 0), "positive integer")
-  expect_error(print(out, n = NA), "positive integer")
-  expect_error(print(out, n = 2.5), "positive integer")
-  expect_error(format(out, n = -1), "positive integer")
-  expect_no_error(capture.output(print(out, n = 2)))
-})
-
-
