@@ -24,6 +24,15 @@ test_that("digits is bounded to the range where rounding is meaningful", {
   expect_error(kompare(l, r, by = "id", digits = -23), "between -22 and 22")
 })
 
+test_that("integer columns are rounded like round()", {
+  l <- tibble::tibble(id = 1:3, x = c(1L, 5L, 11L))
+  r <- tibble::tibble(id = 1:3, x = c(5L, 6L, 14L))
+
+  flagged <- kompare(l, r, by = "id", digits = -1)$diffs$int
+
+  expect_equal(flagged$id, 2)
+})
+
 test_that("NULL digits disables rounding", {
   l <- tibble::tibble(id = 1, x = 0.1 + 0.2)
   r <- tibble::tibble(id = 1, x = 0.3)

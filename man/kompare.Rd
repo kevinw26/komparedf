@@ -27,9 +27,10 @@ vector of shared column names, or a named vector (\code{c(l = "r")}). \code{NULL
 (default) compares rows by position.}
 
 \item{digits}{Decimal places for numeric tolerance, between -22 and 22.
-Default \code{4}. \code{NULL} compares exactly, without tolerance. Double columns
-whose unit in the last place exceeds the tolerance warn that the
-requested precision is below the data's resolution.}
+Default \code{4}. \code{NULL} compares exactly, without tolerance. If digits
+requested require precision greater than available, a warning is emitted.
+Integer and integer64 columns are rounded to \code{digits} places before
+comparing.}
 
 \item{strings}{\code{"strict"} (default) or a \verb{_}-joined combination of
 \code{"ignorecase"} and \code{"trim"}, in any order (e.g. \code{"ignorecase_trim"}).}
@@ -70,8 +71,8 @@ normally. The optional function \code{fn} is applied before validation; it must
 preserve any columns specified in \code{by}. Numeric differences are tolerated
 up to half a unit in the \code{digits} decimal place, compared against the stored
 gap. \code{dbl} columns warn when their resolution is coarser than that
-tolerance; integers need no representation allowance. \code{print()} also reports
-matched rows and compared columns.
+tolerance; integer and integer64 columns are rounded to \code{digits} places
+before comparing. \code{print()} also reports matched rows and compared columns.
 }
 \section{Error conditions}{
 

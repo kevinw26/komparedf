@@ -42,6 +42,8 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' @param digits Decimal places for numeric tolerance, between -22 and 22.
 #'   Default `4`. `NULL` compares exactly, without tolerance. If digits
 #'   requested require precision greater than available, a warning is emitted.
+#'   Integer and integer64 columns are rounded to `digits` places before
+#'   comparing.
 #' @param strings `"strict"` (default) or a `_`-joined combination of
 #'   `"ignorecase"` and `"trim"`, in any order (e.g. `"ignorecase_trim"`).
 #' @param factors `"as_strings"` (default) or `"as_factors"` (compared as
@@ -72,8 +74,8 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' preserve any columns specified in `by`. Numeric differences are tolerated
 #' up to half a unit in the `digits` decimal place, compared against the stored
 #' gap. `dbl` columns warn when their resolution is coarser than that
-#' tolerance; integers need no representation allowance. `print()` also reports
-#' matched rows and compared columns.
+#' tolerance; integer and integer64 columns are rounded to `digits` places
+#' before comparing. `print()` also reports matched rows and compared columns.
 #'
 #' @section Error conditions:
 #' `raise_error = TRUE` gives `kompare_error` with `body` and `obj`. `kompare_dupes_error` 
@@ -348,28 +350,28 @@ kompare <- \(
       }
 
       differs <- \(x, y, col) {
-        if (type %in% c("dbl", "int")) {
+        if (type == "chr") return(neq(clean_str(x), clean_str(y)))
+        if (type %in% c("int", "int64")) {
           if (is.null(digits)) return(neq(x, y))
-          xn <- as.numeric(x)
-          yn <- as.numeric(y)
+          return(neq(round(x, digits), round(y, digits)))
+        }
+        if (type == "dbl") {
+          if (is.null(digits)) return(neq(x, y))
           tol <- 10^-digits / 2
 
           # warn when the data's resolution is coarser than the tolerance
-          if (type == "dbl") {
-            vals <- c(xn, yn) |> keep(is.finite)
-            v <- vals[which.max(abs(vals))]
-            if (length(v) > 0 && numeric_ulp(v) > tol) {
-              warn(glue(
-                "column {col} has a value {f_num(v)}; floating point representation is less ",
-                "accurate than requested tolerance {format(tol, scientific = TRUE)}"))
-            }
+          vals <- c(x, y) |> keep(is.finite)
+          v <- vals[which.max(abs(vals))]
+          if (length(v) > 0 && numeric_ulp(v) > tol) {
+            warn(glue(
+              "column {col} has a value {f_num(v)}; floating point representation is less ",
+              "accurate than requested tolerance {format(tol, scientific = TRUE)}"))
           }
 
           ex <- !vec_equal(x, y, na_equal = TRUE)  # exact equality, NA and NaN included
-          rg <- abs(xn - yn)  # raw gap at the tolerance scale
-          return(ex & (is.na(rg) | rg > tol))
+          rg <- abs(x - y)  # raw gap at the tolerance scale
+          return(ex & (is.na(rg) | rg > tol))  # inclusive at half a unit
         }
-        if (type == "chr") return(neq(clean_str(x), clean_str(y)))
         neq(x, y)
       }
 

@@ -1,5 +1,16 @@
 suppressPackageStartupMessages(library(dplyr))
 
+test_that("integer64 columns are rounded like round()", {
+  skip_if_not_installed("bit64")
+
+  l <- tibble::tibble(id = 1:3, x = bit64::as.integer64(c(1, 5, 11)))
+  r <- tibble::tibble(id = 1:3, x = bit64::as.integer64(c(5, 6, 14)))
+
+  flagged <- kompare(l, r, by = "id", digits = -1)$diffs$int64
+
+  expect_equal(flagged$id, 2)
+})
+
 test_that("kompare compares integer64 columns exactly", {
   skip_if_not_installed("bit64")
 
