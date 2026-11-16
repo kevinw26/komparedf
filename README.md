@@ -5,6 +5,7 @@ Compare two data frames and report schema, key, and value differences.
 ## Install
 
 ```r
+# github
 # install.packages("devtools")
 devtools::install_github("kevinw26/komparedf")
 ```
@@ -22,14 +23,15 @@ kompare(l, r, join_by(id))
 ```
 ```
 # kompare: 3 x 2 vs 4 x 2, by: id
+# settings: digits = 4
 schema mismatches: 0
 unmatched keys: 1 (0 in l only, 1 in r only)
-       id .l    .r   
-  1     4 NA    TRUE 
+       id .l    .r
+  1     4 NA    TRUE
 
 value differences by type:
-    type     id col   .l    .r   
-  1 dbl       2 price 20    21   
+    type     id col   .l      .r
+  1 dbl       2 price 20.0000 21.0000
 
 compared 3 rows and 2 columns
 
@@ -59,7 +61,7 @@ tidy(out)            # tibble: type, col, diffs (attach generics or broom)
 
 | Argument      | Default       | Effect                                    |
 |---------------|---------------|-------------------------------------------|
-| `digits`      | `4`           | decimal places for numeric tolerance      |
+| `digits`      | `4`           | half a unit in the decimal place; `NULL` exact |
 | `strings`     | `"strict"`    | `"ignorecase"`, `"trim"`, or joined `_`   |
 | `factors`     | `"as_strings"`| `"as_factors"` flags differing level definitions |
 | `fn`          | `\(d) d`      | applied to both frames before comparing   |
