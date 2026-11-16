@@ -3,12 +3,15 @@ suppressPackageStartupMessages(library(dplyr))
 test_that("digits sets the numeric tolerance", {
   l <- tibble::tibble(id = 1:2, x = c(1.4, 2.4))
   r <- l |> mutate(x = x + 1e-6)
-  wide <- l |> mutate(x = x + 0.4)
+  near <- l |> mutate(x = x + 0.4)
+  far <- l |> mutate(x = x + 0.6)
 
   expect_length(kompare(l, r, by = "id")$diffs, 0)
   expect_length(kompare(l, r, by = "id", digits = 8)$diffs, 1)
-  expect_length(kompare(l, wide, by = "id", digits = 0)$diffs, 1)
-  expect_length(kompare(l, wide, by = "id", digits = -1)$diffs, 0)
+  # half a unit in the last place: 0.5 at digits = 0
+  expect_length(kompare(l, near, by = "id", digits = 0)$diffs, 0)
+  expect_length(kompare(l, far, by = "id", digits = 0)$diffs, 1)
+  expect_length(kompare(l, near, by = "id", digits = -1)$diffs, 0)
 })
 
 test_that("digits is bounded to the range where rounding is meaningful", {
@@ -41,10 +44,14 @@ test_that("digits must be a single finite integer", {
   expect_error(kompare(l, l, by = "id", digits = TRUE), "digits must be")
 })
 
-test_that("rounding sits on a hard boundary rather than a distance", {
-  l <- tibble::tibble(id = 1, x = 0.12499999999)
-  r <- tibble::tibble(id = 1, x = 0.12500000001)
+test_that("values either side of a rounding midpoint match", {
+  mid <- c(0.005, 0.015, 0.125, 0.995, 1.005, 12.345)
+  l <- tibble::tibble(id = seq_along(mid), x = mid - 1e-11)
+  r <- tibble::tibble(id = seq_along(mid), x = mid + 1e-11)
 
-  # 2e-11 apart, so substantively identical
+  # plain rounding splits every pair onto different sides
+  expect_true(all(round(l$x, 2) != round(r$x, 2)))
+
+  # tolerance keeps them together
   expect_length(kompare(l, r, by = "id", digits = 2)$diffs, 0)
 })

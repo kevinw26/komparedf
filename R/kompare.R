@@ -68,9 +68,8 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' with missing keys are paired rather than reported as unmatched. `NaN` 
 #' values compare equal and `Inf` compares normally. The optional function 
 #' `fn` is applied before validation; it must preserve any columns specified 
-#' in `by`. Numeric tolerance is handled by rounding to `digits` to provide 
-#' a predictable "hard" threshold for equality. `print()` also reports 
-#' matched rows and compared columns.
+#' in `by`. Numeric differences are tolerated up to half a unit in the `digits`
+#' decimal place. `print()` also reports matched rows and compared columns.
 #'
 #' @section Error conditions:
 #' `raise_error = TRUE` gives `kompare_error` with `body` and `obj`. `kompare_dupes_error` 
@@ -348,7 +347,9 @@ kompare <- \(
       differs <- \(x, y) {
         if (type %in% c("dbl", "int")) {
           if (is.null(digits)) return(neq(x, y))
-          return(neq(round(x, digits), round(y, digits)))
+          differ <- !vec_equal(x, y, na_equal = TRUE)
+          d <- abs(as.numeric(x) - as.numeric(y))
+          return(differ & (is.na(d) | d > 10^-digits / 2))
         }
         if (type == "chr") return(neq(clean_str(x), clean_str(y)))
         neq(x, y)
