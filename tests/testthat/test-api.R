@@ -1,13 +1,12 @@
-test_that("is_equal mirrors as.logical", {
+test_that("as.logical reports equality", {
   l <- tibble::tibble(id = 1:2, x = c(1, 2))
   r <- tibble::tibble(id = 1:2, x = c(1, 3))
 
   same <- kompare(l, l, by = "id")
   diff <- kompare(l, r, by = "id")
 
-  expect_true(is_equal(same))
-  expect_false(is_equal(diff))
-  expect_identical(is_equal(diff), as.logical(diff))
+  expect_true(as.logical(same))
+  expect_false(as.logical(diff))
 })
 
 test_that("summary prints the report and returns the object invisibly", {

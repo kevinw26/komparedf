@@ -67,7 +67,7 @@ also reports matched rows and compared columns.
 \section{Error conditions}{
 
 \code{raise_error = TRUE} gives \code{kompare_error} with \code{body} and \code{obj}.
-\code{kompare_dupes_error} may suggest a key found within 3 seconds.
+\code{kompare_dupes_error} may suggest unique comparison key if quickly found.
 }
 
 \examples{

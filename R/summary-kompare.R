@@ -73,7 +73,9 @@ f_num <- \(x) {
   ))
 
   shown <- c(
-    if (settings$digits != 4) .glue("digits = {settings$digits}"),
+    if (!identical(settings$digits, 4)) {
+      if (is.null(settings$digits)) "no rounding" else .glue("digits = {settings$digits}")
+    },
     if (settings$strings != "strict") .glue("strings = {settings$strings}"),
     if (settings$factors != "as_strings") .glue("factors = {settings$factors}")
   )
@@ -130,10 +132,10 @@ f_num <- \(x) {
   ))
 
   notes <- character()
-  if (is_equal(x)) {
+  if (as.logical(x)) {
     notes <- c(notes, cli::col_green(.glue("{cli::symbol$info} all match")))
   }
-  if (!is_equal(x)) {
+  if (!as.logical(x)) {
     notes <- c(notes, cli::col_red(.glue(
       "{cli::symbol$info} {f_num(.n_diffs(x))} differences found"
     )))
@@ -224,13 +226,3 @@ tidy.kompare <- \(x, ...) {
 #'
 #' @export
 as.logical.kompare <- \(x, ...) .n_diffs(x) == 0
-
-#' Do two frames match
-#'
-#' @param x A `kompare` object.
-#'
-#' @return `TRUE` when there are no schema mismatches, unmatched keys, or
-#'   value differences.
-#'
-#' @export
-is_equal <- \(x) as.logical(x)

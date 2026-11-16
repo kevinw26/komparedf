@@ -185,7 +185,7 @@ test_that("dots reject unknown names and alias conflicts", {
 
   expect_error(kompare(l, l, keyz = "id"), "must be empty")
   expect_error(kompare(l, l, by = "id", keys = "id"), "Exactly one of")
-  expect_error(kompare(l, l, by = "id", digits = 2, round = 2), "only one of digits")
+  expect_error(kompare(l, l, by = "id", digits = 2, round = 2), "Exactly one of")
   expect_error(kompare(l, l, by = "id", round = 2, roundDigits = 2), "Exactly one of")
 })
 

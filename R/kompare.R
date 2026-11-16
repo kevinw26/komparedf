@@ -40,7 +40,7 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #'   vector of shared column names, or a named vector (`c(l = "r")`). `NULL`
 #'   (default) compares rows by position.
 #' @param digits Decimal places for numeric tolerance, between -22 and 22.
-#'   Default `4`.
+#'   Default `4`. `NULL` compares exactly, without rounding.
 #' @param strings `"strict"` (default) or a `_`-joined combination of
 #'   `"ignorecase"` and `"trim"`, in any order (e.g. `"ignorecase_trim"`).
 #' @param factors `"as_strings"` (default) or `"as_factors"` (compared as
@@ -58,18 +58,23 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #'   type). Prints as a summary and coerces to logical with [as.logical()].
 #'
 #' @details
-#' Names are matched case-insensitively; only columns sharing name and type
-#' are compared for values. With `factors = "as_factors"`, factor columns
-#' whose levels differ in set or order land in `schema`, with their level
-#' definitions shown. `POSIXct` columns at midnight become `Date`, with a
-#' message. `by` columns must be unique on each side. `NA` values in `by`
-#' columns match one another, so rows with missing keys are paired; `NaN`
-#' values compare equal to each other and `Inf` compares normally. `print()`
-#' also reports matched rows and compared columns.
+#' Names are matched case-insensitively via lowercasing; frames with columns 
+#' that clash after lowercasing trigger an error. Only columns sharing name 
+#' and type are compared for values. With `factors = "as_factors"`, factor 
+#' levels are treated as metadata and differing levels land in `schema`. 
+#' `POSIXct` columns at midnight become `Date` to avoid false differences 
+#' between date-like and time-like storage. `by` columns must be unique on 
+#' each side. `NA` values in `by` columns match one another so that rows 
+#' with missing keys are paired rather than reported as unmatched. `NaN` 
+#' values compare equal and `Inf` compares normally. The optional function 
+#' `fn` is applied before validation; it must preserve any columns specified 
+#' in `by`. Numeric tolerance is handled by rounding to `digits` to provide 
+#' a predictable "hard" threshold for equality. `print()` also reports 
+#' matched rows and compared columns.
 #'
 #' @section Error conditions:
-#' `raise_error = TRUE` gives `kompare_error` with `body` and `obj`.
-#' `kompare_dupes_error` may suggest unique comparison key if quickly found.
+#' `raise_error = TRUE` gives `kompare_error` with `body` and `obj`. `kompare_dupes_error` 
+#' may suggest unique comparison key if quickly found.
 #'
 #' @examples
 #' l <- tibble::tibble(id = 1:3, x = c(1, 2, 3))
@@ -98,21 +103,19 @@ kompare <- \(
   # dots and alias validation
   check_dots_empty()
   check_exclusive(by, keys, .require = FALSE)
-  check_exclusive(round, roundDigits, .require = FALSE)
-  if ((!is.null(round) || !is.null(roundDigits)) && !missing(digits)) {
-    abort("specify only one of digits and its aliases round or roundDigits")
-  }
-  if (!is.null(keys)) by <- keys
-  if (!is.null(roundDigits)) digits <- roundDigits
-  if (!is.null(round)) digits <- round
+  check_exclusive(digits, round, roundDigits, .require = FALSE)
+  if (!missing(keys)) by <- keys
+  if (!missing(roundDigits)) digits <- roundDigits
+  if (!missing(round)) digits <- round
 
   # further arg validation and parsing
-  if (!is_scalar_integerish(digits) ||
-    !is.finite(digits) ||
-    abs(digits) > 22) {
-    abort("digits must be a single integer between -22 and 22")
+  if (
+    !is.null(digits) &&
+    (!is_scalar_integerish(digits) || !is.finite(digits) || abs(digits) > 22)
+  ) {
+    abort("digits must be NULL or a single integer between -22 and 22")
   }
-  digits <- as.integer(digits)
+  digits <- if (is.null(digits)) NULL else as.integer(digits)
   if (!is_string(strings)) {
     abort("strings must be a single string")
   }
@@ -343,7 +346,10 @@ kompare <- \(
       }
 
       differs <- \(x, y) {
-        if (type %in% c("dbl", "int")) return(neq(round(x, digits), round(y, digits)))
+        if (type %in% c("dbl", "int")) {
+          if (is.null(digits)) return(neq(x, y))
+          return(neq(round(x, digits), round(y, digits)))
+        }
         if (type == "chr") return(neq(clean_str(x), clean_str(y)))
         neq(x, y)
       }
@@ -403,7 +409,7 @@ kompare <- \(
     class = "kompare"
   )
 
-  if (!is_equal(summ) && raise_error) {
+  if (!as.logical(summ) && raise_error) {
     abort(
       "kompare found differences between l and r",
       class = "kompare_error",

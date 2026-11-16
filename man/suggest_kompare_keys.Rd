@@ -28,9 +28,9 @@ Suggests shared columns that uniquely identify rows in both \code{l} and \code{r
 }
 \details{
 Candidates are shared, atomic, type-compatible, non-constant columns,
-limited to \code{max_candidates} with the highest weaker-side cardinality. A
-single column is returned if possible; otherwise a key is grown greedily from
-\code{by}. The search is not exhaustive.
+limited to \code{max_candidates} with the highest weaker-side cardinality. A single column
+is returned if possible; otherwise a key is grown greedily from \code{by}. The
+search is not exhaustive.
 }
 \examples{
 l <- tibble::tibble(id = c(1, 1, 2, 2), grp = c("a", "b", "a", "b"))

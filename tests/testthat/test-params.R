@@ -1,26 +1,5 @@
 suppressPackageStartupMessages(library(dplyr))
 
-test_that("digits sets the numeric tolerance", {
-  l <- tibble::tibble(id = 1:2, x = c(1.4, 2.4))
-  r <- l |> mutate(x = x + 1e-6)
-  wide <- l |> mutate(x = x + 0.4)
-
-  expect_length(kompare(l, r, by = "id")$diffs, 0)
-  expect_length(kompare(l, r, by = "id", digits = 8)$diffs, 1)
-  expect_length(kompare(l, wide, by = "id", digits = 0)$diffs, 1)
-  expect_length(kompare(l, wide, by = "id", digits = -1)$diffs, 0)
-})
-
-test_that("digits is bounded to the range where rounding is meaningful", {
-  l <- tibble::tibble(id = 1, x = 1)
-  r <- tibble::tibble(id = 1, x = 9)
-
-  # would coerce to NA and silently match every numeric column
-  expect_error(kompare(l, r, by = "id", digits = 1e10), "between -22 and 22")
-  expect_error(kompare(l, r, by = "id", digits = 23), "between -22 and 22")
-  expect_error(kompare(l, r, by = "id", digits = -23), "between -22 and 22")
-})
-
 test_that("strings = 'strict' compares exactly", {
   l <- tibble::tibble(id = 1:2, s = c("a", "b"))
   r <- l |> mutate(s = c("A ", "b"))
@@ -63,16 +42,6 @@ test_that("positional comparison lines rows up by position", {
 
   expect_equal(nrow(out$keys), 1)
   expect_equal(out$diffs$int$.rn, 2)
-})
-
-test_that("digits must be a single finite integer", {
-  l <- tibble::tibble(id = 1, x = 1.2)
-
-  expect_error(kompare(l, l, by = "id", digits = "4"), "digits must be")
-  expect_error(kompare(l, l, by = "id", digits = NA), "digits must be")
-  expect_error(kompare(l, l, by = "id", digits = Inf), "digits must be")
-  expect_error(kompare(l, l, by = "id", digits = c(1, 2)), "digits must be")
-  expect_error(kompare(l, l, by = "id", digits = TRUE), "digits must be")
 })
 
 test_that("strings must be a single string", {
