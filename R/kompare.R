@@ -58,18 +58,19 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #'   type). Prints as a summary and coerces to logical with [as.logical()].
 #'
 #' @details
-#' Names are matched case-insensitively via lowercasing; frames with columns 
-#' that clash after lowercasing trigger an error. Only columns sharing name 
-#' and type are compared for values. With `factors = "as_factors"`, factor 
-#' levels are treated as metadata and differing levels land in `schema`. 
-#' `POSIXct` columns at midnight become `Date` to avoid false differences 
-#' between date-like and time-like storage. `by` columns must be unique on 
-#' each side. `NA` values in `by` columns match one another so that rows 
-#' with missing keys are paired rather than reported as unmatched. `NaN` 
-#' values compare equal and `Inf` compares normally. The optional function 
-#' `fn` is applied before validation; it must preserve any columns specified 
-#' in `by`. Numeric differences are tolerated up to half a unit in the `digits`
-#' decimal place. `print()` also reports matched rows and compared columns.
+#' Names are matched case-insensitively via lowercasing; frames with columns
+#' that clash after lowercasing trigger an error. Only columns sharing name
+#' and type are compared for values. With `factors = "as_factors"`, factor
+#' levels are treated as metadata and differing levels land in `schema`.
+#' Identically named `Date` and `POSIXct` columns at midnight on both sides
+#' become `Date` to avoid false differences between date-like and time-like
+#' storage. `by` columns must be unique on each side. `NA` values in `by`
+#' columns match one another so that rows with missing keys are paired rather
+#' than reported as unmatched. `NaN` values compare equal and `Inf` compares
+#' normally. The optional function `fn` is applied before validation; it must
+#' preserve any columns specified in `by`. Numeric differences are tolerated
+#' up to half a unit in the `digits` decimal place. `print()` also reports
+#' matched rows and compared columns.
 #'
 #' @section Error conditions:
 #' `raise_error = TRUE` gives `kompare_error` with `body` and `obj`. `kompare_dupes_error` 
@@ -217,24 +218,23 @@ kompare <- \(
   l <- apply_fn(l, "l")
   r <- apply_fn(r, "r")
 
-  # midnight datetimes become dates after fn; all-na columns are not midnight
-  all_midnight <- \(x) {
-    !all(is.na(x)) && all(hour(x) == 0 & minute(x) == 0 & second(x) == 0, na.rm = TRUE)
-  }
-
+  # identically named columns holding only midnight datetimes become dates
   date_cols <- \(d) d |>
-    select(where(\(x) inherits_any(x, "POSIXt") && all_midnight(x))) |>
+    select(where(\(x) {
+      inherits_any(x, c("Date", "POSIXt")) &&
+        !all(is.na(x)) &&
+        all(hour(x) == 0 & minute(x) == 0 & second(x) == 0, na.rm = TRUE)
+    })) |>
     names()
 
-  cols_to_date <- union(date_cols(l), date_cols(r))
+  cols_to_date <- intersect(date_cols(l), date_cols(r))
   if (length(cols_to_date) > 0) {
     inform(glue(
       "columns {str_c(cols_to_date, collapse = ', ')} have no time component and were converted ",
       "to lubridate date"))
   }
-  unify_dates <- \(d) mutate(d, across(all_of(intersect(cols_to_date, names(d))), as_date))
-  l <- l |> unify_dates()
-  r <- r |> unify_dates()
+  l <- l |> mutate(across(all_of(cols_to_date), as_date))
+  r <- r |> mutate(across(all_of(cols_to_date), as_date))
 
   # factor cols shared by both sides, with levels unioned for comparison;
   # rebuild after fn, which may change levels

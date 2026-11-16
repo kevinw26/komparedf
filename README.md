@@ -80,5 +80,6 @@ Parameter names from `rCompare` – eg `keys`, `roundDigits`, and `round` – al
 - Only columns sharing a name and type are compared for values; anything else
   lands in `schema` — including factor columns whose levels differ when
   `factors = "as_factors"`
-- `POSIXct` columns sitting at midnight are compared as `Date`, with a message
+- Identically named `Date` and `POSIXct` columns at midnight on both sides are
+  compared as `Date`, with a message
 - `by` columns must be unique on each side
