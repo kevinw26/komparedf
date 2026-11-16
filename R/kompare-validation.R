@@ -4,22 +4,23 @@ check_frame <- \(x, name) {
   if (!is.data.frame(x)) {
     abort(glue("{name} must be a data frame, not {class(x)[1]}"))
   }
+  nms <- names(x)
   if (nrow(x) == 0) {
     abort(glue("{name} must not be empty"))
   }
   if (ncol(x) == 0) {
     abort(glue("{name} must have at least one column"))
   }
-  if (anyNA(names(x))) {
+  if (anyNA(nms)) {
     abort(glue("{name} has NA column names"))
   }
-  if (any(names(x) == "")) {
+  if (any(nms == "")) {
     abort(glue("{name} has empty column names"))
   }
-  if (any(str_to_lower(names(x)) == ".rn")) {
+  if (any(str_to_lower(nms) == ".rn")) {
     abort(glue("{name} has a reserved column name: .rn"))
   }
-  if (any(str_detect(names(x), "\x1f"))) {
+  if (nms |> str_detect("\x1f") |> any()) {
     abort(glue("{name} has a column name containing the unit separator (\\x1f)"))
   }
   invisible(x)
@@ -27,10 +28,11 @@ check_frame <- \(x, name) {
 
 # reject negative, fractional, or non-finite counts
 check_count <- \(x, name) {
-  if (!is_scalar_integerish(x) || !is.finite(x) || x < 0) {
+  # @formatter:off
+  if (!is_scalar_integerish(x) || !is.finite(x) || x < 0)
     abort(glue("{name} must be a single non-negative integer"))
-  }
   as.integer(x)
+  # @formatter:on
 }
 
 # reject repeated by columns on either side
@@ -49,7 +51,7 @@ check_by_repeats <- \(lhs, rhs) {
 
 # reject recursive keys and keys without a common type
 check_by_types <- \(l, r, by, origin = "by columns must have compatible types in l and r") {
-  non_atomic <- discard(by, \(col) is.atomic(l[[col]]) && is.atomic(r[[col]]))
+  non_atomic <- by |> discard(\(col) is.atomic(l[[col]]) && is.atomic(r[[col]]))
   if (length(non_atomic) > 0) {
     abort(glue(
       "by columns must be atomic, not list or other recursive types: ",

@@ -8,16 +8,24 @@ f_num <- \(x) {
 
 # an indented table, minus tibble class and type rows
 .table_lines <- \(d, n = 5) {
-  lines <- capture.output(print(head(d, n)))
-  lines <- lines[!str_detect(str_remove_all(lines, "\x1b\\[[0-9;]*m"), "^\\s*(<|#)")]
+  lines <- d |> head(n) |> print() |> capture.output()
+  lines <- lines |>
+    keep(\(l) {
+      l |>
+        str_remove_all("\x1b\\[[0-9;]*m") |>
+        str_detect("^\\s*(<|#)", negate = TRUE)
+    })
   lines <- str_trim(lines, side = "right")
   .glue("  {lines}")
 }
 
 # pillar-rendered text; integer64 needs its own exact formatter
 .shaft <- \(x) {
-  if (inherits(x, "integer64")) return(str_trim(format(x)))
-  str_trim(format(pillar_shaft(x), width = 1000))
+  if (inherits(x, "integer64")) return(x |> format() |> str_trim())
+  x |>
+    pillar_shaft() |>
+    format(width = 1000) |>
+    str_trim()
 }
 
 # pillar text for one cell: scalars plain, wider cells clipped to six values
@@ -32,10 +40,11 @@ f_num <- \(x) {
 # cell text via pillar, so every row binds as one character column
 .cell <- \(x) {
   if (length(dim(x)) > 1) {
-    x <- map(seq_len(nrow(x)), \(i) {
-      v <- vec_slice(x, i)
-      if (is.data.frame(v)) unlist(v, use.names = FALSE) else as.vector(v)
-    })
+    x <- seq_len(x |> nrow()) |>
+      map(\(i) {
+        v <- vec_slice(x, i)
+        if (is.data.frame(v)) unlist(v, use.names = FALSE) else as.vector(v)
+      })
   }
   if (!is.list(x)) return(.shaft(x))
   map_chr(x, .cell_values)
@@ -43,13 +52,15 @@ f_num <- \(x) {
 
 # positive whole number of rows to show
 .check_n <- \(n) {
+  # @formatter:off
   if (!is_scalar_integerish(n) || !is.finite(n) || n < 1) {
     abort("n must be a positive integer")
   }
+  # @formatter:on
   as.integer(n)
 }
 
-# format plain doubles; classed doubles need their own pillar methods
+# format plain doubles; classed doubles (eg date; nanotime) need their own pillar methods
 .display <- \(v, digits) {
   if (is.null(digits) || !is.double(v) || is.object(v)) return(v)
   pillar::num(v, digits = digits)
@@ -59,14 +70,15 @@ f_num <- \(x) {
 .type_label <- \(d) {
   if (!"type" %in% names(d)) return("type")
   label <- "data_type"
-  while (label %in% names(d)) label <- str_c(".", label)
+  while (label %in% names(d))
+    label <- str_c(".", label)
   label
 }
 
 # number of differences in a kompare object
 .n_diffs <- \(x) nrow(x$schema) +
   nrow(x$keys) +
-  sum(map_int(x$diffs, nrow))
+  (x$diffs |> map_int(nrow) |> sum())
 
 # render a kompare object as lines
 .format_kompare <- \(x, n = 5) {
@@ -92,7 +104,7 @@ f_num <- \(x) {
     lines <- c(lines, cli::col_grey(.glue("# settings: {str_c(shown, collapse = ', ')}")))
   }
 
-  lines <- c(lines, .glue("schema mismatches: {f_num(nrow(x$schema))}"))
+  lines <- c(lines, .glue("schema mismatches: {x$schema |> nrow() |> f_num()}"))
   if (nrow(x$schema) > 0) {
     lines <- c(lines, .table_lines(x$schema, n))
     if (nrow(x$schema) > n) {
@@ -101,12 +113,12 @@ f_num <- \(x) {
     lines <- c(lines, "")
   }
 
-  lines <- c(lines, .glue("unmatched keys: {f_num(nrow(x$keys))}"))
+  lines <- c(lines, .glue("unmatched keys: {x$keys |> nrow() |> f_num()}"))
   if (nrow(x$keys) > 0) {
     n_l <- sum(is.na(x$keys$.r))
     n_r <- sum(is.na(x$keys$.l))
     lines[length(lines)] <- .glue(
-      "unmatched keys: {f_num(nrow(x$keys))}",
+      "unmatched keys: {x$keys |> nrow() |> f_num()}",
       " ({n_l} in l only, {n_r} in r only)"
     )
     lines <- c(lines, .table_lines(x$keys, n))
@@ -127,13 +139,13 @@ f_num <- \(x) {
           head(n) |>
           mutate(!!sym(label) := .env$type, .before = 1) |>
           mutate(
-            .l = .cell(.display(.l, settings$digits)),
-            .r = .cell(.display(.r, settings$digits))
+            .l = .l |> .display(settings$digits) |> .cell(),
+            .r = .r |> .display(settings$digits) |> .cell()
           )
       }) |>
       bind_rows()
     lines <- c(lines, .table_lines(shown_diffs, nrow(shown_diffs)))
-    diff_count <- sum(map_int(x$diffs, nrow))
+    diff_count <- x$diffs |> map_int(nrow) |> sum()
     if (diff_count > nrow(shown_diffs)) {
       lines <- c(lines, cli::col_grey(.glue("  # ... and {f_num(diff_count - nrow(shown_diffs))} more")))
     }
@@ -183,7 +195,7 @@ f_num <- \(x) {
 #'
 #' @export
 summary.kompare <- \(object, n = 5, ...) {
-  writeLines(format(object, n = n))
+  object |> format(n = n) |> writeLines()
   invisible(object)
 }
 
@@ -216,8 +228,8 @@ format.kompare <- \(x, n = 5, ...) {
 #'
 #' @export
 tidy.kompare <- \(x, ...) {
-  n <- as.integer(attr(x, "compared")[["rows"]])
-  if (sum(map_int(x$diffs, nrow)) == 0) {
+  n <- attr(x, "compared")[["rows"]] |> as.integer()
+  if ((x$diffs |> map_int(nrow) |> sum()) == 0) {
     return(tibble(type = character(), col = character(), diffs = integer(), n = integer()))
   }
 

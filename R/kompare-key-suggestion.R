@@ -2,8 +2,8 @@
 is_validly_atomic <- \(l, r, cols) {
   cols |>
     map_lgl(\(c) {
-      is.atomic(l[[c]]) &&
-        is.atomic(r[[c]]) &&
+      # @formatter:off
+      l[[c]] |> is.atomic() && r[[c]] |> is.atomic() &&
         try_fetch(
           {
             vec_ptype_common(l[[c]], r[[c]])
@@ -11,6 +11,7 @@ is_validly_atomic <- \(l, r, cols) {
           },
           error = \(cnd) FALSE
         )
+      # @formatter:on
     })
 }
 
@@ -66,8 +67,8 @@ suggest_kompare_keys <- \(l, r, by = character(), max_add = 5, max_candidates = 
     as_tibble_col(column_name = "col") |>
     filter(is_validly_atomic(l, r, col)) |>
     mutate(
-      n_l = map_int(col, \(col) vec_unique_count(l[[col]])),
-      n_r = map_int(col, \(col) vec_unique_count(r[[col]]))
+      n_l = map_int(col, \(col) l[[col]] |> vec_unique_count()),
+      n_r = map_int(col, \(col) r[[col]] |> vec_unique_count())
     ) |>
     filter(n_l > 1, n_r > 1) |>
     mutate(score = pmin(n_l, n_r)) |>
@@ -86,8 +87,8 @@ suggest_kompare_keys <- \(l, r, by = character(), max_add = 5, max_candidates = 
       mutate(score = map_int(col, \(col) {
         cols <- c(k_vector, col)
         min(
-          vec_unique_count(l |> select(all_of(cols))),
-          vec_unique_count(r |> select(all_of(cols)))
+          l |> select(all_of(cols)) |> vec_unique_count(),
+          r |> select(all_of(cols)) |> vec_unique_count()
         )
       })) |>
       slice_max(score, n = 1, with_ties = FALSE) |>

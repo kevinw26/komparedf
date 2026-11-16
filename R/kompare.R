@@ -135,7 +135,7 @@ kompare <- \(
   sf <- if (!identical(strings, "strict")) {
     str_split_1(strings, "_") |> str_to_lower()
   } else character()
-  if (length(setdiff(sf, c("ignorecase", "trim"))) > 0) {
+  if ((setdiff(sf, c("ignorecase", "trim")) |> length()) > 0) {
     abort(glue('strings must be "strict" or a combination of ignorecase and trim, not "{strings}"'))
   }
   sf_ignorecase <- "ignorecase" %in% sf
@@ -148,12 +148,13 @@ kompare <- \(
   # helper functions
   clean_types <- \(d) {
     if (factors == "as_strings") {
-      return(mutate(d, across(where(is.factor), as.character)))
+      return(d |> mutate(across(where(is.factor), as.character)))
     }
-    mutate(d, across(
-      all_of(intersect(factor_cols, names(d))),
-      \(x) factor(x, levels = factor_lvls[[cur_column()]])
-    ))
+    d |> mutate(
+      across(
+        all_of(intersect(factor_cols, names(d))),
+        \(x) factor(x, levels = factor_lvls[[cur_column()]])
+      ))
   }
 
   # construct and validate by
@@ -183,12 +184,12 @@ kompare <- \(
   # same as left_join(l, r, by); rename r's cols to match l
   if (inherits_any(by, "dplyr_join_by")) {
     if (any(by$condition != "==") || any(by$filter != "none")) {
-      conditions <- str_c(unique(by$condition), collapse = ", ")
+      conditions <- str_c(by$condition |> unique(), collapse = ", ")
       abort(glue("by must contain only equality conditions (==), not: {conditions}"))
     }
     by_l <- by$x |> str_to_lower()
     by_r <- by$y |> str_to_lower()
-    reserved <- intersect(union(by_l, by_r), c("col", ".l", ".r"))
+    reserved <- union(by_l, by_r) |> intersect(c("col", ".l", ".r"))
     if (length(reserved) > 0) {
       abort(glue("by cannot use reserved column names: {str_c(reserved, collapse = ', ')}"))
     }
@@ -197,7 +198,7 @@ kompare <- \(
     check_by_exists(by_l, names(l), "l")
     check_by_exists(by_r, names(r), "r")
 
-    clash <- intersect(setdiff(by_l, by_r), names(r))
+    clash <- setdiff(by_l, by_r) |> intersect(names(r))
     if (length(clash) > 0) {
       abort(glue(
         "by cannot rename r columns to {str_c(clash, collapse = ', ')}; ",
@@ -215,7 +216,7 @@ kompare <- \(
   }
 
   apply_fn <- \(d, side) {
-    out <- validate_frame(fn(d), glue("fn output for {side}"))
+    out <- fn(d) |> validate_frame(glue("fn output for {side}"))
     if (!is.null(by)) {
       check_by_exists(by, names(out), side)
     }
@@ -234,7 +235,7 @@ kompare <- \(
     })) |>
     names()
 
-  cols_to_date <- intersect(date_cols(l), date_cols(r))
+  cols_to_date <- date_cols(l) |> intersect(date_cols(r))
   if (length(cols_to_date) > 0) {
     inform(glue(
       "columns {str_c(cols_to_date, collapse = ', ')} have no time component and were converted ",
@@ -251,7 +252,7 @@ kompare <- \(
   )
   factor_lvls <- factor_cols |>
     set_names(factor_cols) |>
-    map(\(col) union(levels(l[[col]]), levels(r[[col]])))
+    map(\(col) union(l[[col]] |> levels(), r[[col]] |> levels()))
 
   if (!is.null(by)) {
     # fn can change key types; validate afterwards, naming fn as the cause
@@ -269,7 +270,7 @@ kompare <- \(
     )
     if (!is.null(found)) {
       cols <- found |>
-        map_chr(\(col) deparse(sym(col), width.cutoff = 500L)) |>
+        map_chr(\(col) sym(col) |> deparse(width.cutoff = 500L)) |>
         str_c(collapse = ", ")
       message <- glue("{message}; consider join_by({cols})")
     }
@@ -297,7 +298,7 @@ kompare <- \(
 
   col_type <- \(d, col) {
     tag <- if (col %in% lvl_mismatch) str_c("[", str_c(levels(d[[col]]), collapse = ","), "]") else ""
-    str_c(vec_ptype_abbr(d[[col]]), tag)
+    vec_ptype_abbr(d[[col]]) |> str_c(tag)
   }
 
   dt <- full_join(
@@ -353,7 +354,7 @@ kompare <- \(
         if (type == "chr") return(neq(clean_str(x), clean_str(y)))
         if (type %in% c("int", "int64")) {
           if (is.null(digits)) return(neq(x, y))
-          return(neq(round(x, digits), round(y, digits)))
+          return(neq(x |> round(digits), y |> round(digits)))
         }
         if (type == "dbl") {
           if (is.null(digits)) return(neq(x, y))
@@ -361,7 +362,7 @@ kompare <- \(
 
           # warn when the data's resolution is coarser than the tolerance
           vals <- c(x, y) |> keep(is.finite)
-          v <- vals[which.max(abs(vals))]
+          v <- vals[vals |> abs() |> which.max()]
           if (length(v) > 0 && numeric_ulp(v) > tol) {
             warn(glue(
               "column {col} has a value {f_num(v)}; floating point representation is less ",

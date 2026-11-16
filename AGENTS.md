@@ -13,6 +13,8 @@
 - tidyverse only: dplyr, tidyr, purrr, tibble, stringr, rlang
 - rlang for tidy eval (`sym()`, `enquo()`, `!!!`, `set_names()`), not `get()`/`eval(parse())`
 - stringr for all string work, not `gsub`/`substr`/`regexpr`
+- prefer pipes `x |> g() |> f()` to function composition `f(g(x))` but not when multiple inputs
+  are similar in length or using pipes would require inserting parentheses
 
 ## messages
 
