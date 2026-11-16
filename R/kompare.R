@@ -115,8 +115,10 @@ kompare <- \(
 
   # further arg validation and parsing
   if (
+    # @formatter:off
     !is.null(digits) &&
-    (!is_scalar_integerish(digits) || !is.finite(digits) || abs(digits) > 22)
+      (!is_scalar_integerish(digits) || !is.finite(digits) || abs(digits) > 22)
+    # @formatter:on
   ) {
     abort("digits must be NULL or a single integer between -22 and 22")
   }
@@ -320,19 +322,17 @@ kompare <- \(
     !vec_equal(x, y, na_equal = TRUE)
   }
 
-  d_types <- na.omit(dt |>
-                       filter(dt.l == dt.r) |>
-                       distinct(dt.l) |>
-                       drop_na() |>
-                       pull())
+  d_types <- dt |>
+    filter(dt.l == dt.r) |>
+    distinct(dt.l) |>
+    pull()
   diffs <- d_types |>
     map(\(type) {
-      cols <- na.omit(
-        dt |>
-          filter(dt.l == type & dt.r == type) |>
-          pull(col) |>
-          setdiff(by)
-      )
+      cols <- dt |>
+        filter(dt.l == type & dt.r == type) |>
+        pull(col) |>
+        setdiff(by) |>
+        na.omit()
       if (length(cols) == 0) return(tibble())
 
       # join once for this type, comparing every column pairwise
@@ -393,8 +393,8 @@ kompare <- \(
             comp[rows, by, drop = FALSE],
             tibble(
               col = col,
-              .l = take(comp[[nm_l]]),
-              .r = take(comp[[nm_r]])
+              .l = comp[[nm_l]] |> take(),
+              .r = comp[[nm_r]] |> take()
             )
           )
         }) |>
