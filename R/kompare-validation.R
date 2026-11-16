@@ -87,3 +87,14 @@ check_by_values <- \(by) {
   }
   invisible(by)
 }
+
+# representation guard for a numeric pair: 1.5 ulp of the coarser value,
+# covering half an ulp per operand and half from the subtraction
+ulp_guard <- \(x, y) {
+  to_ulp <- \(v) {
+    v <- abs(as.numeric(v))
+    pmax(2^(floor(log2(v)) - 52), .Machine$double.xmin * .Machine$double.eps)
+  }
+  guard <- 1.5 * pmax(to_ulp(x), to_ulp(y))
+  if_else(is.finite(guard), guard, 0) # non-finite values carry no finite guard
+}

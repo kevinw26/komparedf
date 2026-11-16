@@ -49,7 +49,6 @@ out$schema   # columns on one side only, or retyped
 out$keys     # rows with no match
 out$diffs    # differing rows, by vctrs type ("dbl", "chr", ...)
 
-is_equal(out)        # TRUE when nothing differs
 as.logical(out)      # same
 summary(out)         # print the report
 format(out)          # report as lines

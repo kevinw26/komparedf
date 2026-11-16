@@ -55,3 +55,19 @@ test_that("values either side of a rounding midpoint match", {
   # tolerance keeps them together
   expect_length(kompare(l, r, by = "id", digits = 2)$diffs, 0)
 })
+
+test_that("gaps of half a unit match regardless of representation error", {
+  # both gaps are nominally 0.005, but binary error leaves one a hair above
+  l <- tibble::tibble(id = 1:2, x = c(0.125, 0.1))
+  r <- tibble::tibble(id = 1:2, x = c(0.13, 0.105))
+
+  expect_length(kompare(l, r, by = "id", digits = 2)$diffs, 0)
+})
+
+test_that("the representation guard scales with magnitude", {
+  # ulp near 1e9 is 2^-23, so the same nominal gap wobbles by ~1e-7
+  l <- tibble::tibble(id = 1:2, x = 1000000000)
+  r <- tibble::tibble(id = 1:2, x = c(1000000000.005, 1000000000.005000114))
+
+  expect_length(kompare(l, r, by = "id", digits = 2)$diffs, 0)
+})

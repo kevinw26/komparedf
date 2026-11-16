@@ -46,6 +46,12 @@ f_num <- \(x) {
   as.integer(n)
 }
 
+# format numeric cells to the comparison precision
+.display <- \(v, digits) {
+  if (is.null(digits) || !is.double(v)) return(v)
+  pillar::num(v, digits = digits)
+}
+
 # first unused column name for the diff type label
 .type_label <- \(d) {
   if (!"type" %in% names(d)) return("type")
@@ -117,7 +123,10 @@ f_num <- \(x) {
         d |>
           head(n) |>
           mutate(!!sym(label) := .env$type, .before = 1) |>
-          mutate(.l = .cell(.l), .r = .cell(.r))
+          mutate(
+            .l = .cell(.display(.l, settings$digits)),
+            .r = .cell(.display(.r, settings$digits))
+          )
       }) |>
       bind_rows()
     lines <- c(lines, .table_lines(shown_diffs, nrow(shown_diffs)))

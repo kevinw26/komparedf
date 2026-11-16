@@ -81,7 +81,7 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' kompare(l, r, dplyr::join_by(id))
 #'
 #' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool try_fetch check_dots_empty check_exclusive env_get_list
-#' @importFrom dplyr bind_cols bind_rows cur_column distinct filter full_join inner_join join_by mutate pull rename rename_with row_number select slice_max ungroup where across all_of
+#' @importFrom dplyr bind_cols bind_rows cur_column distinct filter full_join if_else inner_join join_by mutate pull rename rename_with row_number select slice_max ungroup where across all_of
 #' @importFrom tidyr drop_na
 #' @importFrom purrr discard imap keep map map2 map_chr map_int map_lgl reduce set_names
 #' @importFrom stringr str_to_lower str_c str_trim str_split_1 str_detect
@@ -347,9 +347,12 @@ kompare <- \(
       differs <- \(x, y) {
         if (type %in% c("dbl", "int")) {
           if (is.null(digits)) return(neq(x, y))
-          differ <- !vec_equal(x, y, na_equal = TRUE)
-          d <- abs(as.numeric(x) - as.numeric(y))
-          return(differ & (is.na(d) | d > 10^-digits / 2))
+          xn <- as.numeric(x)
+          yn <- as.numeric(y)
+          ex <- !vec_equal(x, y, na_equal = TRUE)  # exact equality, NA and NaN included
+          rg <- abs(xn - yn)  # raw gap at the tolerance scale
+          guard <- ulp_guard(xn, yn)  # 1.5 ulp of the coarser operand
+          return(ex & (is.na(rg) | rg > 10^-digits / 2 + guard))  # inclusive at half a unit
         }
         if (type == "chr") return(neq(clean_str(x), clean_str(y)))
         neq(x, y)
