@@ -203,6 +203,10 @@ format.kompare <- \(x, n = 5, ...) {
 #' @export
 tidy.kompare <- \(x, ...) {
   n <- as.integer(attr(x, "compared")[["rows"]])
+  if (sum(map_int(x$diffs, nrow)) == 0) {
+    return(tibble(type = character(), col = character(), diffs = integer(), n = integer()))
+  }
+
   x$diffs |>
     imap(\(d, type) {
       tab <- table(d[["col"]])
