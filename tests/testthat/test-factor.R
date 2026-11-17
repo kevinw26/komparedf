@@ -53,15 +53,13 @@ test_that("string options apply to factors compared as strings", {
     )$diffs$fct),
     1
   )
-})
 
-test_that("string options apply to ordered factors compared as strings", {
-  l <- tibble(id = 1:2, x = factor(c("A ", "b"), levels = c("A ", "b"), ordered = TRUE))
-  r <- tibble(id = 1:2, x = factor(c("a", "b"), levels = c("a", "b"), ordered = TRUE))
+  l_ord <- tibble(id = 1:2, x = factor(c("A ", "b"), levels = c("A ", "b"), ordered = TRUE))
+  r_ord <- tibble(id = 1:2, x = factor(c("a", "b"), levels = c("a", "b"), ordered = TRUE))
 
-  expect_length(kompare(l, r, by = "id", strings = "ignorecase_trim")$diffs, 0)
+  expect_length(kompare(l_ord, r_ord, by = "id", strings = "ignorecase_trim")$diffs, 0)
   expect_equal(
-    nrow(kompare(l, r, by = "id", strings = "strict")$diffs$ord),
+    nrow(kompare(l_ord, r_ord, by = "id", strings = "strict")$diffs$ord),
     1
   )
 })
@@ -71,6 +69,11 @@ test_that("as_strings ignores level definitions", {
   r <- tibble(x = factor(c("a", "b"), levels = c("b", "a")))
 
   expect_length(kompare(l, r, factors = "as_strings")$diffs, 0)
+
+  l_ord <- tibble(x = factor(c("a", "b"), levels = c("a", "b"), ordered = TRUE))
+  r_ord <- tibble(x = factor(c("a", "b"), levels = c("b", "a"), ordered = TRUE))
+
+  expect_length(kompare(l_ord, r_ord, factors = "as_strings")$diffs, 0)
 })
 
 test_that("factor level order matters under as_factors", {
@@ -84,25 +87,17 @@ test_that("factor level order matters under as_factors", {
   expect_equal(out$schema$dt.l, "fct[a,b]")
   expect_equal(out$schema$dt.r, "fct[b,a]")
   expect_length(out$diffs, 0)
-})
 
-test_that("as_strings ignores ordered factor level definitions", {
-  l <- tibble(x = factor(c("a", "b"), levels = c("a", "b"), ordered = TRUE))
-  r <- tibble(x = factor(c("a", "b"), levels = c("b", "a"), ordered = TRUE))
+  l_ord <- tibble(x = factor(c("a", "b"), levels = c("a", "b"), ordered = TRUE))
+  r_ord <- tibble(x = factor(c("a", "b"), levels = c("b", "a"), ordered = TRUE))
 
-  expect_length(kompare(l, r, factors = "as_strings")$diffs, 0)
-})
+  out_ord <- kompare(l_ord, r_ord, factors = "as_factors")
 
-test_that("ordered factor level order matters under as_factors", {
-  l <- tibble(x = factor(c("a", "b"), levels = c("a", "b"), ordered = TRUE))
-  r <- tibble(x = factor(c("a", "b"), levels = c("b", "a"), ordered = TRUE))
-
-  out <- kompare(l, r, factors = "as_factors")
-
-  expect_equal(nrow(out$schema), 1)
-  expect_equal(out$schema$dt.l, "ord[a,b]")
-  expect_equal(out$schema$dt.r, "ord[b,a]")
-  expect_length(out$diffs, 0)
+  expect_equal(nrow(out_ord$schema), 1)
+  expect_equal(out_ord$schema$col, "x")
+  expect_equal(out_ord$schema$dt.l, "ord[a,b]")
+  expect_equal(out_ord$schema$dt.r, "ord[b,a]")
+  expect_length(out_ord$diffs, 0)
 })
 
 test_that("opposite ordered factor keys are incompatible", {

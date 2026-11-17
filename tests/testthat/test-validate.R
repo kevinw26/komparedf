@@ -1,25 +1,22 @@
-test_that("validate_frame rejects things that are not data frames", {
-  expect_error(validate_frame(1:3, "l"), "l must be a data frame")
-  expect_error(validate_frame(NULL, "r"), "r must be a data frame")
-  expect_error(validate_frame(matrix(1:4, 2), "l"), "l must be a data frame")
-  expect_error(validate_frame(list(a = 1), "l"), "l must be a data frame")
-  expect_error(validate_frame("x", "r"), "r must be a data frame")
+test_that("validate_frame rejects non-frames and names the type", {
+  expect_error(
+    validate_frame(1:3, "l"),
+    "l must be a data frame, not integer",
+    class = "rlang_error"
+  )
+  expect_error(validate_frame(NULL, "r"), "r must be a data frame, not NULL")
+  expect_error(validate_frame(matrix(1:4, 2), "l"), "l must be a data frame, not matrix")
+  expect_error(validate_frame(list(a = 1), "l"), "l must be a data frame, not list")
+  expect_error(validate_frame("x", "r"), "r must be a data frame, not character")
 })
 
-test_that("validate_frame errors name what is wrong", {
-  expect_error(validate_frame(1:3, "l"), "not integer")
-  expect_error(validate_frame(matrix(1:4, 2), "r"), "not matrix")
-  expect_error(
-    validate_frame(tibble::tibble(Id = 1, id = 2, .name_repair = "minimal"), "l"),
-    "duplicate column names after lowercasing: id"
-  )
-})
+test_that("repeated by columns are rejected and say which side", {
+  d <- tibble::tibble(id = 1, ident = 1, ident2 = 1, grp = 1)
 
-test_that("repeated by columns say which side", {
-  expect_error(
-    kompare(tibble::tibble(id = 1), tibble::tibble(id = 1), by = c(id = "a", id = "b")),
-    "on the l side"
-  )
+  expect_error(kompare(d, d, by = c("id", "id")), "by repeats a column")
+  expect_error(kompare(d, d, by = c("id", "ID")), "by repeats a column")
+  expect_error(kompare(d, d, by = c(id = "ident", id = "ident2")), "on the l side")
+  expect_error(kompare(d, d, by = c(id = "ident", grp = "ident")), "on the r side")
 })
 
 test_that("grouped frames are compared ungrouped", {
@@ -36,13 +33,6 @@ test_that("grouped frames produce no grouping messages", {
   l <- dplyr::group_by(tibble::as_tibble(iris), Species)
 
   expect_no_message(kompare(l, l))
-})
-
-test_that("validate_frame raises rlang errors", {
-  expect_error(validate_frame(1:3, "l"), class = "rlang_error")
-  expect_error(validate_frame(tibble::tibble(Id = 1, id = 2, .name_repair = "minimal"), "l"),
-               class = "rlang_error"
-  )
 })
 
 test_that("validate_frame lower-cases names without touching values", {
@@ -122,7 +112,13 @@ test_that("validate_frame rejects missing and empty names", {
 
 test_that("validate_frame rejects names that collide after lowercasing", {
   d <- tibble::tibble(Id = 1, id = 2, .name_repair = "minimal")
-  expect_error(validate_frame(d, "l"), "l has duplicate column names after lowercasing")
+
+  expect_error(
+    validate_frame(d, "l"),
+    "l has duplicate column names after lowercasing: id",
+    class = "rlang_error"
+  )
+  expect_error(kompare(d, d), "duplicate column names")
 })
 
 test_that("kompare validates both sides", {
@@ -130,7 +126,6 @@ test_that("kompare validates both sides", {
 
   expect_error(kompare(1:3, df), "l must be a data frame")
   expect_error(kompare(df, 1:3), "r must be a data frame")
-  expect_error(kompare(df, df, by = c("Species", "Species")), "by repeats a column")
 })
 
 test_that("reserved column names are rejected", {

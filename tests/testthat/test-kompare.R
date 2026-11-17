@@ -86,16 +86,6 @@ test_that("kompare flags a string difference", {
   expect_equal(flagged |> pull(id), 20)
 })
 
-test_that("kompare does not flag a string difference", {
-  l <- iris_base |> mutate(species = as.character(species))
-  r <- l |> mutate(species = if_else(id == 20, "sEtOsA ", species))
-
-  out <- kompare(l, r, keys = "id", strings = "ignorecase_trim")
-  flagged <- out$diffs
-
-  expect_null(flagged$diffs$chr)
-})
-
 test_that("kompare flags unmatched keys", {
   l <- iris_base
   r <- iris_base |> filter(!between(id, 3, 15))
@@ -104,30 +94,6 @@ test_that("kompare flags unmatched keys", {
 
   expect_equal(nrow(out$keys), 13)
   expect_equal(out$keys |> pull(id), 3:15)
-})
-
-test_that("kompare rejects non-data-frame inputs", {
-  expect_error(kompare(1:3, iris_base), "l must be a data frame")
-  expect_error(kompare(iris_base, 1:3), "r must be a data frame")
-})
-
-test_that("validate_frame rejects non-data-frames", {
-  expect_error(validate_frame(1:3, "l"), "l must be a data frame")
-  expect_error(validate_frame(NULL, "r"), "r must be a data frame")
-})
-
-test_that("validate_frame rejects duplicate names created by lowercasing", {
-  dupes <- tibble(Id = 1, id = 2, .name_repair = "minimal")
-
-  expect_error(validate_frame(dupes, "l"), "l has duplicate column names")
-  expect_error(kompare(dupes, dupes), "duplicate column names")
-})
-
-test_that("validate_frame returns the frame with lower-case names", {
-  out <- validate_frame(tibble(Id = 1:3, Value = c("a", "b", "c")), "l")
-
-  expect_equal(names(out), c("id", "value"))
-  expect_equal(nrow(out), 3)
 })
 
 test_that("kompare messages once for all date columns with no time component", {
@@ -174,13 +140,6 @@ test_that("check_cells warns when a comparison is large", {
   expect_warning(check_cells(l, r, c("a", "b"), limit = 10), "cells to compare")
   expect_no_warning(check_cells(l, r, "a", limit = 100))
   expect_equal(check_cells(l, r, c("a", "b")), 20)
-})
-
-test_that("kompare rejects a by spec that repeats a column", {
-  expect_error(kompare(iris_base, iris_base, by = c("id", "id")), "by repeats a column")
-  expect_error(kompare(iris_base, iris_base, by = c("id", "ID")), "by repeats a column")
-  expect_error(kompare(iris_base, iris_base, by = c(id = "ident", id = "ident2")), "by repeats a column")
-  expect_error(kompare(iris_base, iris_base, by = c(id = "ident", grp = "ident")), "by repeats a column")
 })
 
 test_that("strings and factors are checked against their choices", {

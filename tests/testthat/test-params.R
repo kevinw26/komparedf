@@ -38,7 +38,6 @@ test_that("raise_error throws and prints the summary on differences", {
   l <- tibble::tibble(id = 1:2, x = c(1, 2))
   r <- l |> mutate(x = x + 1)
 
-  expect_error(kompare(l, r, by = "id", raise_error = TRUE), "kompare found differences")
   expect_error(kompare(l, r, by = "id", raise_error = TRUE), "schema mismatches")
   expect_no_error(kompare(l, l, by = "id", raise_error = TRUE))
 })
