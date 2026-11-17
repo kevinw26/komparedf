@@ -173,6 +173,13 @@ f_num <- \(x) {
 #'
 #' @return `object`, invisibly.
 #'
+#' @examples
+#' l <- tibble::tibble(id = 1:3, x = c(1, 2, 3))
+#' r <- tibble::tibble(id = 1:3, x = c(1, 9, 3))
+#' out <- kompare(l, r, by = "id")
+#' summary(out)
+#' format(out)
+#'
 #' @importFrom dplyr bind_rows
 #' @importFrom glue glue
 #' @importFrom pillar pillar_shaft
@@ -212,6 +219,11 @@ format.kompare <- \(x, n = 5, ...) {
 #'
 #' @return A tibble of `type`, `col`, `diffs`, and `n` (observations
 #'   compared).
+#'
+#' @examples
+#' l <- tibble::tibble(id = 1:3, x = c(1, 2, 3))
+#' r <- tibble::tibble(id = 1:3, x = c(1, 9, 3))
+#' generics::tidy(kompare(l, r, by = "id"))
 #'
 #' @importFrom dplyr bind_rows
 #' @importFrom generics tidy

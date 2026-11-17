@@ -6,11 +6,11 @@ Authors@R: c(
     person(
       "Kevin", "Wong",
       email = "kevinw26@gmail.com",
-      role = c("aut", "cre")
+      role = c("aut", "cre", "cph")
     )
   )
 Description: Compares two data frames for differences in schema, keys, and values.
-License: MIT + file LICENSE
+License: GPL-2
 Encoding: UTF-8
 Depends: R (>= 4.1.0)
 Roxygen: list(markdown = TRUE)

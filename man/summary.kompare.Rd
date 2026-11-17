@@ -25,3 +25,11 @@
 \description{
 Prints the difference report.
 }
+\examples{
+l <- tibble::tibble(id = 1:3, x = c(1, 2, 3))
+r <- tibble::tibble(id = 1:3, x = c(1, 9, 3))
+out <- kompare(l, r, by = "id")
+summary(out)
+format(out)
+
+}

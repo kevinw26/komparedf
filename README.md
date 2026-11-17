@@ -5,7 +5,10 @@ Compare two data frames and report schema, key, and value differences.
 ## Install
 
 ```r
-# github
+# via cran
+install.packages("komparedf")
+
+# via github
 # install.packages("devtools")
 devtools::install_github("kevinw26/komparedf")
 ```
@@ -83,3 +86,7 @@ Parameter names from `rCompare` – eg `keys`, `roundDigits`, and `round` – al
 - Identically named `Date` and `POSIXct` columns at midnight on both sides are
   compared as `Date`, with a message
 - `by` columns must be unique on each side
+
+## Licence
+
+This code is licensed under GPL-2.
