@@ -8,3 +8,5 @@
 ^komparedf\.Rcheck$
 ^cran-comments\.md$
 ^CRAN-SUBMISSION$
+^\.git$
+^\..Rcheck$
