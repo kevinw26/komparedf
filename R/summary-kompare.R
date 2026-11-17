@@ -34,7 +34,7 @@ f_num <- \(x) {
   clipped <- length(v) > 6
   s <- .shaft(if (clipped) v[1:6] else v)
   if (length(s) == 1) return(s)
-  str_c("<", str_c(s, collapse = ", "), if (clipped) ", …", ">")
+  str_c("<", str_c(s, collapse = ", "), if (clipped) ", \u2026", ">")
 }
 
 # cell text via pillar, so every row binds as one character column
@@ -94,9 +94,7 @@ f_num <- \(x) {
   ))
 
   shown <- c(
-    if (!identical(settings$digits, 4)) {
-      if (is.null(settings$digits)) "no rounding" else .glue("digits = {settings$digits}")
-    },
+    if (is.null(settings$digits)) "no rounding" else .glue("digits = {settings$digits}"),
     if (settings$strings != "strict") .glue("strings = {settings$strings}"),
     if (settings$factors != "as_strings") .glue("factors = {settings$factors}")
   )

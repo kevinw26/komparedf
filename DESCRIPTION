@@ -1,6 +1,6 @@
 Package: komparedf
 Type: Package
-Title: Compare data frames diagnostically
+Title: Compare Data Frames Diagnostically
 Version: 0.1.0
 Authors@R: c(
     person(

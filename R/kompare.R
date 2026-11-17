@@ -1,5 +1,5 @@
 # names used in data masks and display helpers
-globalVariables(c(".env", ".l", ".r", ":=", "dt.l", "dt.r"))
+globalVariables(c(".env", ".l", ".r", ":=", "dt.l", "dt.r", "n_l", "n_r", "score"))
 
 # check a frame, lower-case its names, reject duplicates the lowercasing creates
 validate_frame <- \(d, name) {
@@ -70,12 +70,13 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' storage. `by` columns must be unique on each side. `NA` values in `by`
 #' columns match one another so that rows with missing keys are paired rather
 #' than reported as unmatched. `NaN` values compare equal and `Inf` compares
-#' normally. The optional function `fn` is applied before validation; it must
-#' preserve any columns specified in `by`. Numeric differences are tolerated
-#' up to half a unit in the `digits` decimal place, compared against the stored
-#' gap. `dbl` columns warn when their resolution is coarser than that
-#' tolerance; integer and integer64 columns are rounded to `digits` places
-#' before comparing. `print()` also reports matched rows and compared columns.
+#' normally. The optional function `fn` is applied before values are compared; it
+#' must keep any columns named in `by` and leave their types compatible, though
+#' it may change them to a common type. Numeric differences are tolerated up to
+#' half a unit in the `digits` decimal place, compared against the stored gap.
+#' `dbl` columns warn when their resolution is coarser than that tolerance;
+#' integer and integer64 columns are rounded to `digits` places before
+#' comparing. `print()` also reports matched rows and compared columns.
 #'
 #' @section Error conditions:
 #' `raise_error = TRUE` gives `kompare_error` with `body` and `obj`. `kompare_dupes_error` 
@@ -223,6 +224,8 @@ kompare <- \(
     out
   }
 
+  # fn may repair incompatible by types, so only pre-check when it will not run
+  if (missing(fn)) check_by_types(l, r, by)
   l <- apply_fn(l, "l")
   r <- apply_fn(r, "r")
 
@@ -254,10 +257,9 @@ kompare <- \(
     set_names(factor_cols) |>
     map(\(col) union(l[[col]] |> levels(), r[[col]] |> levels()))
 
-  if (!is.null(by)) {
-    # fn can change key types; validate afterwards, naming fn as the cause
+  # after date inference and factor rebuild, check types again
+  if (!missing(fn))
     check_by_types(l, r, by, "fn left by columns with incompatible types in l and r")
-  }
 
   # assign row number if necessary; check for key duplicates
   has_key_dupes <- \(d) any(d |> select(all_of(by)) |> duplicated())
@@ -369,7 +371,7 @@ kompare <- \(
               "accurate than requested tolerance {format(tol, scientific = TRUE)}"))
           }
 
-          ex <- !vec_equal(x, y, na_equal = TRUE)  # exact equality, NA and NaN included
+          ex <- neq(x, y)  # exact equality, treating NaN as NA
           rg <- abs(x - y)  # raw gap at the tolerance scale
           return(ex & (is.na(rg) | rg > tol))  # inclusive at half a unit
         }

@@ -77,6 +77,21 @@ test_that("binary error above half a unit is reported", {
   expect_equal(flagged$id, 1)
 })
 
+test_that("NaN and NA compare alike at any tolerance", {
+  l <- tibble::tibble(id = 1:2, x = c(NaN, NA))
+  r <- tibble::tibble(id = 1:2, x = c(NA, NaN))
+
+  expect_length(kompare(l, r, by = "id")$diffs, 0)
+  expect_length(kompare(l, r, by = "id", digits = NULL)$diffs, 0)
+})
+
+test_that("NaN differs from a finite value under tolerance", {
+  l <- tibble::tibble(id = 1, x = NaN)
+  r <- tibble::tibble(id = 1, x = 1)
+
+  expect_equal(nrow(kompare(l, r, by = "id")$diffs$dbl), 1)
+})
+
 test_that("representable differences are reported", {
   # ulp at 1e16 is 2, far above tol = 5e-5; warn because the requested
   # precision is below the data's resolution; the one-ulp gap is exactly

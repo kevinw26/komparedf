@@ -53,6 +53,38 @@ test_that("factor level order matters under as_factors", {
   expect_length(out$diffs, 0)
 })
 
+test_that("as_strings ignores ordered factor level definitions", {
+  l <- tibble(x = factor(c("a", "b"), levels = c("a", "b"), ordered = TRUE))
+  r <- tibble(x = factor(c("a", "b"), levels = c("b", "a"), ordered = TRUE))
+
+  expect_length(kompare(l, r, factors = "as_strings")$diffs, 0)
+})
+
+test_that("ordered factor level order matters under as_factors", {
+  l <- tibble(x = factor(c("a", "b"), levels = c("a", "b"), ordered = TRUE))
+  r <- tibble(x = factor(c("a", "b"), levels = c("b", "a"), ordered = TRUE))
+
+  out <- kompare(l, r, factors = "as_factors")
+
+  expect_equal(nrow(out$schema), 1)
+  expect_equal(out$schema$dt.l, "ord[a,b]")
+  expect_equal(out$schema$dt.r, "ord[b,a]")
+  expect_length(out$diffs, 0)
+})
+
+test_that("opposite ordered factor keys are incompatible", {
+  l <- tibble(f = factor(c("a", "b"), levels = c("a", "b"), ordered = TRUE))
+  r <- tibble(f = factor(c("a", "b"), levels = c("b", "a"), ordered = TRUE))
+
+  cnd <- tryCatch(kompare(l, r, by = "f"), error = identity)
+
+  expect_match(
+    conditionMessage(cnd),
+    "f (ord[a,b] vs ord[b,a])",
+    fixed = TRUE
+  )
+})
+
 test_that("factor in one frame only lands in schema", {
   l <- tibble(id = 1:2, x = factor(c("a", "b")))
   r <- tibble(id = 1:2, x = c("a", "b"))

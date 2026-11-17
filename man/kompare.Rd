@@ -67,12 +67,13 @@ become \code{Date} to avoid false differences between date-like and time-like
 storage. \code{by} columns must be unique on each side. \code{NA} values in \code{by}
 columns match one another so that rows with missing keys are paired rather
 than reported as unmatched. \code{NaN} values compare equal and \code{Inf} compares
-normally. The optional function \code{fn} is applied before validation; it must
-preserve any columns specified in \code{by}. Numeric differences are tolerated
-up to half a unit in the \code{digits} decimal place, compared against the stored
-gap. \code{dbl} columns warn when their resolution is coarser than that
-tolerance; integer and integer64 columns are rounded to \code{digits} places
-before comparing. \code{print()} also reports matched rows and compared columns.
+normally. The optional function \code{fn} is applied before values are compared; it
+must keep any columns named in \code{by} and leave their types compatible, though
+it may change them to a common type. Numeric differences are tolerated up to
+half a unit in the \code{digits} decimal place, compared against the stored gap.
+\code{dbl} columns warn when their resolution is coarser than that tolerance;
+integer and integer64 columns are rounded to \code{digits} places before
+comparing. \code{print()} also reports matched rows and compared columns.
 }
 \section{Error conditions}{
 

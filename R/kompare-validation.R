@@ -49,8 +49,18 @@ check_by_repeats <- \(lhs, rhs) {
   invisible(NULL)
 }
 
+# short type label, with factor levels so order differences are visible
+type_abbr <- \(x) {
+  if (is.factor(x)) {
+    kind <- if (is.ordered(x)) "ord" else "fct"
+    return(glue("{kind}[{str_c(levels(x), collapse = ',')}]"))
+  }
+  vec_ptype_abbr(x)
+}
+
 # reject recursive keys and keys without a common type
 check_by_types <- \(l, r, by, origin = "by columns must have compatible types in l and r") {
+  if (is.null(by)) return(invisible(by))
   non_atomic <- by |> discard(\(col) is.atomic(l[[col]]) && is.atomic(r[[col]]))
   if (length(non_atomic) > 0) {
     abort(glue(
@@ -58,7 +68,7 @@ check_by_types <- \(l, r, by, origin = "by columns must have compatible types in
       "{str_c(non_atomic, collapse = ', ')}"
     ))
   }
-  ok <- map_lgl(by, \(col) {
+  okay <- map_lgl(by, \(col) {
     try_fetch(
       {
         vec_ptype_common(l[[col]], r[[col]])
@@ -67,8 +77,13 @@ check_by_types <- \(l, r, by, origin = "by columns must have compatible types in
       error = \(cnd) FALSE
     )
   })
-  if (!all(ok)) {
-    abort(glue("{origin}: {str_c(by[!ok], collapse = ', ')}"))
+  if (!all(okay)) {
+    bad <- by |>
+      discard(okay) |>
+      map_chr(\(col) {
+        glue("{col} ({type_abbr(l[[col]])} vs {type_abbr(r[[col]])})")
+      })
+    abort(glue("{origin}: {str_c(bad, collapse = ', ')}"))
   }
   invisible(by)
 }

@@ -160,6 +160,24 @@ test_that("by columns must have compatible types", {
   ))
 })
 
+test_that("by types are checked before and after fn", {
+  l <- tibble::tibble(id = 1L, side = "l")
+  r <- tibble::tibble(id = 1L, side = "r")
+  breaks_types <- \(d) {
+    if (d$side[1] == "l") dplyr::mutate(d, id = as.character(id)) else d
+  }
+
+  expect_error(kompare(l, r, by = "id", fn = breaks_types), "fn left by columns")
+
+  # fn can repair keys that were already incompatible
+  repaired <- kompare(
+    tibble::tibble(id = "1"), tibble::tibble(id = 1), by = "id",
+    fn = \(d) dplyr::mutate(d, id = as.character(id))
+  )
+
+  expect_true(as.logical(repaired))
+})
+
 test_that("by rejects unsupported specifications", {
   l <- tibble::tibble(id = 1)
 
