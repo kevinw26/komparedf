@@ -29,11 +29,12 @@ vector of shared column names, or a named vector (\code{c(l = "r")}). \code{NULL
 \item{digits}{Decimal places for numeric tolerance, between -22 and 22.
 Default \code{4}. \code{NULL} compares exactly, without tolerance. If digits
 requested require precision greater than available, a warning is emitted.
-Integer and integer64 columns are rounded to \code{digits} places before
-comparing.}
+Integer and integer64 columns, including matrix and array columns, are
+rounded to \code{digits} places before comparing.}
 
 \item{strings}{\code{"strict"} (default) or a \verb{_}-joined combination of
-\code{"ignorecase"} and \code{"trim"}, in any order (e.g. \code{"ignorecase_trim"}).}
+\code{"ignorecase"} and \code{"trim"}, in any order (e.g. \code{"ignorecase_trim"}).
+Also applies when factors are compared as strings.}
 
 \item{factors}{\code{"as_strings"} (default) or \code{"as_factors"} (compared as
 factors; columns whose levels differ in set or order land in \code{schema}).}
@@ -73,7 +74,9 @@ it may change them to a common type. Numeric differences are tolerated up to
 half a unit in the \code{digits} decimal place, compared against the stored gap.
 \code{dbl} columns warn when their resolution is coarser than that tolerance;
 integer and integer64 columns are rounded to \code{digits} places before
-comparing. \code{print()} also reports matched rows and compared columns.
+comparing. The same rounding and tolerance apply to integer and double
+matrix and array columns. \code{print()} also reports matched rows and compared
+columns.
 }
 \section{Error conditions}{
 

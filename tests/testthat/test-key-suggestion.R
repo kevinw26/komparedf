@@ -1,4 +1,4 @@
-test_that("is_validly_atomic excludes unusable columns", {
+test_that("key candidates exclude unusable columns", {
   l <- tibble::tibble(
     id = 1:3,
     a = 1:3,
@@ -9,8 +9,12 @@ test_that("is_validly_atomic excludes unusable columns", {
   )
   r <- l |>
     dplyr::mutate(bad = as.character(bad))
+  cols <- c("a", "lst", "bad")
 
-  expect_equal(is_validly_atomic(l, r, c("a", "lst", "bad")), c(TRUE, FALSE, FALSE))
+  valid <- is_atomic_pair(l, r, cols) &
+    purrr::map_lgl(cols, \(col) has_common_dtype(l[[col]], r[[col]]))
+
+  expect_equal(valid, c(TRUE, FALSE, FALSE))
 })
 
 test_that("suggest_kompare_keys returns single and composite keys", {
@@ -86,6 +90,54 @@ test_that("suggest_kompare_keys validates inputs", {
   expect_error(
     suggest_kompare_keys(l, l, by = "id", max_candidates = NA),
     "max_candidates must be a single non-negative integer"
+  )
+})
+
+test_that("suggestion normalises names like kompare", {
+  l <- tibble::tibble(Id = 1:2)
+  r <- tibble::tibble(id = 1:2)
+
+  key <- suggest_kompare_keys(l, r)
+
+  expect_equal(key, "id")
+  expect_true(as.logical(kompare(l, r, by = key)))
+  expect_true(as.logical(kompare(l, r, by = dplyr::join_by(id))))
+  expect_equal(suggest_kompare_keys(l, r, by = "ID"), "id")
+  expect_equal(suggest_kompare_keys(l, r, by = c(Id = "id")), "id")
+
+  dupes <- tibble::tibble(Id = 1:2, id = 2:1, .name_repair = "minimal")
+  expect_error(
+    suggest_kompare_keys(dupes, dupes),
+    "duplicate column names after lowercasing"
+  )
+})
+
+test_that("suggestion never returns reserved result columns", {
+  for (key in c("col", ".l", ".r")) {
+    d <- tibble::tibble(!!key := 1:2, id = c("a", "b"))
+
+    expect_equal(suggest_kompare_keys(d, d), "id")
+    expect_error(suggest_kompare_keys(d, d, by = key), "reserved column names")
+  }
+
+  expect_error(
+    suggest_kompare_keys(tibble::tibble(.L = 1:2), tibble::tibble(.L = 1:2), by = ".L"),
+    "reserved column names"
+  )
+  expect_error(
+    suggest_kompare_keys(tibble::tibble(col = 1:2), tibble::tibble(col = 1:2)),
+    "no obvious unique key found"
+  )
+})
+
+test_that("suggestion caps unbounded search limits", {
+  d <- tibble::tibble(id = 1:2)
+
+  expect_no_warning(
+    expect_equal(
+      suggest_kompare_keys(d, d, by = "id", max_add = Inf, max_candidates = Inf),
+      "id"
+    )
   )
 })
 

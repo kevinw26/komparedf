@@ -1,20 +1,3 @@
-# atomic on both sides with a common type
-is_validly_atomic <- \(l, r, cols) {
-  cols |>
-    map_lgl(\(c) {
-      # @formatter:off
-      l[[c]] |> is.atomic() && r[[c]] |> is.atomic() &&
-        try_fetch(
-          {
-            vec_ptype_common(l[[c]], r[[c]])
-            TRUE
-          },
-          error = \(cnd) FALSE
-        )
-      # @formatter:on
-    })
-}
-
 #' Suggest keys for kompare
 #'
 #' Suggests shared columns that uniquely identify rows in both `l` and `r`.
@@ -32,6 +15,7 @@ is_validly_atomic <- \(l, r, cols) {
 #'   shortest.
 #'
 #' @details
+#' Names are matched case-insensitively, and returned names are lower case.
 #' Candidates are shared, atomic, type-compatible, non-constant columns,
 #' limited to `max_candidates` with the highest weaker-side cardinality. A single column
 #' is returned if possible; otherwise a key is grown greedily from `by`. The
@@ -42,30 +26,32 @@ is_validly_atomic <- \(l, r, cols) {
 #' l <- tibble::tibble(id = c(1, 1, 2, 2), grp = c("a", "b", "a", "b"))
 #' suggest_kompare_keys(l, l, by = "id")
 suggest_kompare_keys <- \(l, r, by = character(), max_add = 5, max_candidates = 20) {
-  check_frame(l, "l")
-  check_frame(r, "r")
+  l <- validate_frame(l, "l")
+  r <- validate_frame(r, "r")
   if (inherits(by, "dplyr_join_by")) {
     abort("by must be a character vector of shared column names, not join_by()")
   }
   if (!is.character(by)) {
     abort("by must be a character vector of shared column names")
   }
-  if (!is.null(names(by)) && any(names(by) != unname(by))) {
+  by_names <- names(by)
+  if (!is.null(by_names) &&
+    (anyNA(by_names) || any(str_to_lower(by_names) != str_to_lower(unname(by))))) {
     abort("key renaming is not supported")
   }
-  by <- unname(by)
-  check_by_values(by)
-  check_by_exists(by, names(l), "l")
-  check_by_exists(by, names(r), "r")
-  check_by_repeats(by, by)
-  check_by_types(l, r, by)
-  max_add <- check_count(max_add, "max_add")
-  max_candidates <- check_count(max_candidates, "max_candidates")
+  by <- unname(by) |> str_to_lower()
+  check_by(l, r, by)
+  max_add <- check_int(max_add, "max_add", min = 0, cap = TRUE)
+  max_candidates <- check_int(max_candidates, "max_candidates", min = 0, cap = TRUE)
 
   candidates <- intersect(names(l), names(r)) |>
     setdiff(by) |>
+    setdiff(c("col", ".l", ".r")) |>
     as_tibble_col(column_name = "col") |>
-    filter(is_validly_atomic(l, r, col)) |>
+    filter(
+      is_atomic_pair(l, r, col) &
+        map_lgl(col, \(c) has_common_dtype(l[[c]], r[[c]]))
+    ) |>
     mutate(
       n_l = map_int(col, \(col) l[[col]] |> vec_unique_count()),
       n_r = map_int(col, \(col) r[[col]] |> vec_unique_count())
@@ -97,7 +83,7 @@ suggest_kompare_keys <- \(l, r, by = character(), max_add = 5, max_candidates = 
   }
 
   key <- reduce(
-    seq_len(max_add),
+    seq_len(min(max_add, length(candidates))),
     \(key, i) if (keys_uniquely_identify(key)) key else try_best_candidate(key),
     .init = by
   )

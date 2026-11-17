@@ -33,6 +33,39 @@ test_that("factors = 'as_strings' compares levels as text", {
   expect_length(kompare(l, r, factors = "as_strings")$diffs, 1)
 })
 
+test_that("string options apply to factors compared as strings", {
+  l <- tibble(id = 1:2, x = factor(c("A ", "b")))
+  r <- tibble(id = 1:2, x = factor(c("a", "b")))
+
+  expect_length(kompare(l, r, by = "id", strings = "ignorecase_trim")$diffs, 0)
+  expect_equal(
+    nrow(kompare(l, r, by = "id", strings = "strict")$diffs$fct),
+    1
+  )
+  levels <- c("A ", "a", "b")
+  lf <- l |> mutate(x = factor(as.character(x), levels = levels))
+  rf <- r |> mutate(x = factor(as.character(x), levels = levels))
+
+  expect_equal(
+    nrow(kompare(
+      lf, rf,
+      by = "id", factors = "as_factors", strings = "ignorecase_trim"
+    )$diffs$fct),
+    1
+  )
+})
+
+test_that("string options apply to ordered factors compared as strings", {
+  l <- tibble(id = 1:2, x = factor(c("A ", "b"), levels = c("A ", "b"), ordered = TRUE))
+  r <- tibble(id = 1:2, x = factor(c("a", "b"), levels = c("a", "b"), ordered = TRUE))
+
+  expect_length(kompare(l, r, by = "id", strings = "ignorecase_trim")$diffs, 0)
+  expect_equal(
+    nrow(kompare(l, r, by = "id", strings = "strict")$diffs$ord),
+    1
+  )
+})
+
 test_that("as_strings ignores level definitions", {
   l <- tibble(x = factor(c("a", "b"), levels = c("a", "b")))
   r <- tibble(x = factor(c("a", "b"), levels = c("b", "a")))

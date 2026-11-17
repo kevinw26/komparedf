@@ -27,6 +27,7 @@ shortest.
 Suggests shared columns that uniquely identify rows in both \code{l} and \code{r}.
 }
 \details{
+Names are matched case-insensitively, and returned names are lower case.
 Candidates are shared, atomic, type-compatible, non-constant columns,
 limited to \code{max_candidates} with the highest weaker-side cardinality. A single column
 is returned if possible; otherwise a key is grown greedily from \code{by}. The

@@ -239,6 +239,17 @@ test_that("matrix and array columns compare and print as row cells", {
   expect_true(any(str_detect(wide_txt, "<1, 1, 1, 1, 1, 1, …>")))
 })
 
+test_that("incompatible nested columns are schema mismatches", {
+  l <- tibble(id = 1:2, x = tibble(a = 1:2, b = 3:4))
+  r <- tibble(id = 1:2, x = tibble(a = 1:2, b = c("c", "d")))
+
+  out <- kompare(l, r, by = "id")
+
+  expect_equal(nrow(out$schema), 1)
+  expect_equal(out$schema$col, "x")
+  expect_length(out$diffs, 0)
+})
+
 test_that("by rejects names reserved by the result schema", {
   expect_error(kompare(tibble(col = 1), tibble(col = 1), by = "col"), "reserved column names")
   expect_error(kompare(tibble(.l = 1), tibble(.l = 1), by = ".l"), "reserved column names")

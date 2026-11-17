@@ -69,6 +69,36 @@ test_that("data tables warn and are converted to tibbles", {
   expect_s3_class(out, "tbl_df")
 })
 
+test_that("check_int caps positive infinity and oversized values", {
+  expect_identical(check_int(Inf, cap = TRUE), .Machine$integer.max)
+  expect_identical(check_int(2^31, cap = TRUE), .Machine$integer.max)
+  expect_identical(
+    check_int(Inf, "max_add", min = 0, cap = TRUE),
+    .Machine$integer.max
+  )
+  expect_identical(
+    check_int(2^31, "max_candidates", min = 0, cap = TRUE),
+    .Machine$integer.max
+  )
+  expect_identical(check_int(0, "max_add", min = 0), 0L)
+  expect_identical(
+    check_int(NULL, "digits", min = -22, max = 22, allow_null = TRUE),
+    NULL
+  )
+  expect_error(check_int(-Inf, cap = TRUE), "positive integer")
+  expect_error(check_int(-1, "max_add", min = 0), "non-negative integer")
+  expect_error(check_int(1.5), "positive integer")
+  expect_error(check_int(NA), "positive integer")
+  expect_error(
+    check_int(23, "digits", min = -22, max = 22, allow_null = TRUE),
+    "NULL or a single integer between -22 and 22"
+  )
+  expect_error(
+    check_int(Inf, "digits", min = -22, max = 22, allow_null = TRUE),
+    "between -22 and 22"
+  )
+})
+
 test_that("base data frames compare with a single key", {
   l <- data.frame(id = 1:2, x = c(1, 2))
   r <- data.frame(id = 1:2, x = c(1, 3))
@@ -158,6 +188,16 @@ test_that("by columns must have compatible types", {
   expect_true(as.logical(
     kompare(tibble::tibble(id = factor("a")), tibble::tibble(id = "a"), by = "id")
   ))
+})
+
+test_that("type errors do not blame a missing fn", {
+  cnd <- tryCatch(
+    kompare(tibble::tibble(id = "1"), tibble::tibble(id = 1), by = "id"),
+    error = identity
+  )
+
+  expect_match(conditionMessage(cnd), "by columns must have compatible types")
+  expect_false(grepl("fn left", conditionMessage(cnd)))
 })
 
 test_that("by types are checked before and after fn", {

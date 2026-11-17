@@ -42,10 +42,11 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' @param digits Decimal places for numeric tolerance, between -22 and 22.
 #'   Default `4`. `NULL` compares exactly, without tolerance. If digits
 #'   requested require precision greater than available, a warning is emitted.
-#'   Integer and integer64 columns are rounded to `digits` places before
-#'   comparing.
+#'   Integer and integer64 columns, including matrix and array columns, are
+#'   rounded to `digits` places before comparing.
 #' @param strings `"strict"` (default) or a `_`-joined combination of
 #'   `"ignorecase"` and `"trim"`, in any order (e.g. `"ignorecase_trim"`).
+#'   Also applies when factors are compared as strings.
 #' @param factors `"as_strings"` (default) or `"as_factors"` (compared as
 #'   factors; columns whose levels differ in set or order land in `schema`).
 #' @param raise_error Abort with the printed summary on differences. Default
@@ -76,7 +77,9 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' half a unit in the `digits` decimal place, compared against the stored gap.
 #' `dbl` columns warn when their resolution is coarser than that tolerance;
 #' integer and integer64 columns are rounded to `digits` places before
-#' comparing. `print()` also reports matched rows and compared columns.
+#' comparing. The same rounding and tolerance apply to integer and double
+#' matrix and array columns. `print()` also reports matched rows and compared
+#' columns.
 #'
 #' @section Error conditions:
 #' `raise_error = TRUE` gives `kompare_error` with `body` and `obj`. `kompare_dupes_error` 
@@ -88,16 +91,16 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' kompare(l, r, dplyr::join_by(id))
 #'
 #' @importFrom rlang abort warn inform expr sym arg_match inherits_any is_scalar_integerish is_string is_bool try_fetch check_dots_empty check_exclusive env_get_list
-#' @importFrom dplyr bind_cols bind_rows cur_column distinct filter full_join if_else inner_join join_by mutate pull rename rename_with row_number select slice_max ungroup where across all_of
+#' @importFrom dplyr bind_cols bind_rows case_when cur_column distinct filter full_join if_any if_else inner_join join_by mutate pull rename rename_with row_number select slice_max ungroup where across all_of
 #' @importFrom tidyr drop_na
-#' @importFrom purrr discard imap keep map map2 map_chr map_int map_lgl reduce set_names
+#' @importFrom purrr discard imap keep map map2 map2_lgl map_chr map_int map_lgl reduce set_names
 #' @importFrom stringr str_to_lower str_c str_trim str_split_1 str_detect
 #' @importFrom glue glue
 #' @importFrom tibble as_tibble as_tibble_col tibble
 #' @importFrom stats na.omit
 #' @importFrom utils globalVariables
 #' @importFrom lubridate as_date hour minute second
-#' @importFrom vctrs vec_equal vec_in vec_ptype_abbr vec_ptype_common vec_slice vec_unique_count
+#' @importFrom vctrs vec_equal vec_in vec_ptype vec_ptype_abbr vec_ptype_common vec_slice vec_unique_count
 #'
 #' @export
 kompare <- \(
@@ -115,15 +118,7 @@ kompare <- \(
   if (!missing(round)) digits <- round
 
   # further arg validation and parsing
-  if (
-    # @formatter:off
-    !is.null(digits) &&
-      (!is_scalar_integerish(digits) || !is.finite(digits) || abs(digits) > 22)
-    # @formatter:on
-  ) {
-    abort("digits must be NULL or a single integer between -22 and 22")
-  }
-  digits <- if (is.null(digits)) NULL else as.integer(digits)
+  digits <- check_int(digits, "digits", min = -22, max = 22, allow_null = TRUE)
   if (!is_string(strings)) {
     abort("strings must be a single string")
   }
@@ -190,14 +185,7 @@ kompare <- \(
     }
     by_l <- by$x |> str_to_lower()
     by_r <- by$y |> str_to_lower()
-    reserved <- union(by_l, by_r) |> intersect(c("col", ".l", ".r"))
-    if (length(reserved) > 0) {
-      abort(glue("by cannot use reserved column names: {str_c(reserved, collapse = ', ')}"))
-    }
-
-    check_by_repeats(by_l, by_r)
-    check_by_exists(by_l, names(l), "l")
-    check_by_exists(by_r, names(r), "r")
+    check_by(l, r, by_l, by_r, check_types = missing(fn)) # check types if no fn provided
 
     clash <- setdiff(by_l, by_r) |> intersect(names(r))
     if (length(clash) > 0) {
@@ -216,18 +204,11 @@ kompare <- \(
     abort("fn must be a function")
   }
 
-  apply_fn <- \(d, side) {
-    out <- fn(d) |> validate_frame(glue("fn output for {side}"))
-    if (!is.null(by)) {
-      check_by_exists(by, names(out), side)
-    }
-    out
+  if (!missing(fn)) {
+    apply_fn <- \(d, side) fn(d) |> validate_frame(glue("fn output for {side}"))
+    l <- apply_fn(l, "l")
+    r <- apply_fn(r, "r")
   }
-
-  # fn may repair incompatible by types, so only pre-check when it will not run
-  if (missing(fn)) check_by_types(l, r, by)
-  l <- apply_fn(l, "l")
-  r <- apply_fn(r, "r")
 
   # identically named columns holding only midnight datetimes become dates
   date_cols <- \(d) d |>
@@ -257,9 +238,13 @@ kompare <- \(
     set_names(factor_cols) |>
     map(\(col) union(l[[col]] |> levels(), r[[col]] |> levels()))
 
-  # after date inference and factor rebuild, check types again
-  if (!missing(fn))
-    check_by_types(l, r, by, "fn left by columns with incompatible types in l and r")
+  # after function execution, date inference and factor rebuild, check the keys again
+  if (!missing(fn)) {
+    check_by(
+      l, r, by,
+      type_origin = "fn left by columns with incompatible types in l and r"
+    )
+  }
 
   # assign row number if necessary; check for key duplicates
   has_key_dupes <- \(d) any(d |> select(all_of(by)) |> duplicated())
@@ -310,29 +295,37 @@ kompare <- \(
   ) |>
     filter(!col %in% by)
 
-  # warn if data is very large
+  # abbreviated labels can agree while the underlying dtypes are incompatible
+  col_has_common_dtype <- \(col) {
+    x <- l[[col]]
+    y <- r[[col]]
+    if (factors == "as_strings") {
+      if (is.factor(x)) x <- as.character(x)
+      if (is.factor(y)) y <- as.character(y)
+    }
+    has_common_dtype(x, y)
+  }
+
   compared_cols <- dt |>
     filter(dt.l == dt.r) |>
-    pull(col)
+    pull(col) |>
+    keep(col_has_common_dtype)
+
+  # warn if data is very large
   check_cells(l, r, compared_cols)
 
   # construct diffs by type
-  neq <- \(x, y) {
-    if (is.numeric(x) && is.numeric(y)) {
-      x <- if (any(is.nan(x))) replace(x, is.nan(x), NA) else x
-      y <- if (any(is.nan(y))) replace(y, is.nan(y), NA) else y
-    }
-    !vec_equal(x, y, na_equal = TRUE)
-  }
-
   d_types <- dt |>
-    filter(dt.l == dt.r) |>
+    filter(col %in% compared_cols) |>
     distinct(dt.l) |>
     pull()
   diffs <- d_types |>
     map(\(type) {
       cols <- dt |>
-        filter(dt.l == type & dt.r == type) |>
+        filter(
+          col %in% compared_cols &
+            dt.l == type &
+            dt.r == type) |>
         pull(col) |>
         setdiff(by) |>
         na.omit()
@@ -353,29 +346,16 @@ kompare <- \(
       }
 
       differs <- \(x, y, col) {
-        if (type == "chr") return(neq(clean_str(x), clean_str(y)))
-        if (type %in% c("int", "int64")) {
-          if (is.null(digits)) return(neq(x, y))
-          return(neq(x |> round(digits), y |> round(digits)))
+        if (type == "chr" || (factors == "as_strings" && type %in% c("fct", "ord"))) {
+          raw <- neq(clean_str(x), clean_str(y))
+        } else if (is_roundable_numeric(x)) {
+          raw <- numeric_differs(x, y, digits, col)
+        } else {
+          raw <- neq(x, y)
         }
-        if (type == "dbl") {
-          if (is.null(digits)) return(neq(x, y))
-          tol <- 10^-digits / 2
 
-          # warn when the data's resolution is coarser than the tolerance
-          vals <- c(x, y) |> keep(is.finite)
-          v <- vals[vals |> abs() |> which.max()]
-          if (length(v) > 0 && numeric_ulp(v) > tol) {
-            warn(glue(
-              "column {col} has a value {f_num(v)}; floating point representation is less ",
-              "accurate than requested tolerance {format(tol, scientific = TRUE)}"))
-          }
-
-          ex <- neq(x, y)  # exact equality, treating NaN as NA
-          rg <- abs(x - y)  # raw gap at the tolerance scale
-          return(ex & (is.na(rg) | rg > tol))  # inclusive at half a unit
-        }
-        neq(x, y)
+        # test for being scalar; if matrix, do rowSums
+        if (is.null(dim(raw))) raw else rowSums(raw, dims = 1) > 0
       }
 
       mask <- cols |>
@@ -386,7 +366,7 @@ kompare <- \(
       # no pivot, so cost scales with differences rather than cells
       mask |>
         imap(\(m, col) {
-          rows <- which(if (is.null(dim(m))) m else rowSums(m, dims = 1) > 0)
+          rows <- which(m)
           if (length(rows) == 0) return(NULL)
           nm_l <- str_c(col, "\x1f.l")
           nm_r <- str_c(col, "\x1f.r")
@@ -417,7 +397,10 @@ kompare <- \(
   # make summary
   summ <- structure(
     list(
-      "schema" = dt |> filter(is.na(dt.l) | is.na(dt.r) | dt.l != dt.r),
+      "schema" = dt |> filter(
+        if_any(c(dt.l, dt.r), is.na) |
+          !col %in% compared_cols |
+          dt.l != dt.r),
       "keys" = unmatched,
       "diffs" = diffs
     ),

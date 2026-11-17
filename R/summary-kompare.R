@@ -50,16 +50,6 @@ f_num <- \(x) {
   map_chr(x, .cell_values)
 }
 
-# positive whole number of rows to show
-.check_n <- \(n) {
-  # @formatter:off
-  if (!is_scalar_integerish(n) || !is.finite(n) || n < 1) {
-    abort("n must be a positive integer")
-  }
-  # @formatter:on
-  as.integer(n)
-}
-
 # format plain doubles; classed doubles (eg date; nanotime) need their own pillar methods
 .display <- \(v, digits) {
   if (is.null(digits) || !is.double(v) || is.object(v)) return(v)
@@ -82,7 +72,7 @@ f_num <- \(x) {
 
 # render a kompare object as lines
 .format_kompare <- \(x, n = 5) {
-  n <- .check_n(n)
+  n <- check_int(n, cap = TRUE)
   settings <- attr(x, "settings")
   dims <- attr(x, "dims")
   compared <- attr(x, "compared")

@@ -107,3 +107,10 @@ test_that("print requires a positive integer n", {
   expect_error(format(out, n = -1), "positive integer")
   expect_no_error(capture.output(print(out, n = 2)))
 })
+
+test_that("print caps unbounded n", {
+  out <- kompare(tibble::tibble(id = 1), tibble::tibble(id = 1), by = "id")
+
+  expect_no_warning(format(out, n = Inf))
+  expect_no_warning(format(out, n = 2^31))
+})

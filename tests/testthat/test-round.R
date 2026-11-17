@@ -1,5 +1,24 @@
 suppressPackageStartupMessages(library(dplyr))
 
+test_that("rounded values use vctrs abbreviations", {
+  expect_true(is_roundable_numeric(1L))
+  expect_true(is_roundable_numeric(matrix(1L)))
+  expect_true(is_roundable_numeric(1))
+  expect_true(is_roundable_numeric(matrix(1)))
+
+  expect_false(is_roundable_numeric(as.Date("2020-01-01")))
+  expect_false(is_roundable_numeric(as.POSIXct("2020-01-01", tz = "UTC")))
+  expect_false(is_roundable_numeric(factor("a")))
+  expect_false(is_roundable_numeric(complex(real = 1, imaginary = 1)))
+
+  if (requireNamespace("bit64", quietly = TRUE)) {
+    expect_true(is_roundable_numeric(bit64::as.integer64(1)))
+  }
+  if (requireNamespace("nanotime", quietly = TRUE)) {
+    expect_false(is_roundable_numeric(nanotime::nanotime(Sys.time())))
+  }
+})
+
 test_that("digits sets the numeric tolerance", {
   l <- tibble::tibble(id = 1:2, x = c(1.4, 2.4))
   r <- l |> mutate(x = x + 1e-6)
@@ -90,6 +109,50 @@ test_that("NaN differs from a finite value under tolerance", {
   r <- tibble::tibble(id = 1, x = 1)
 
   expect_equal(nrow(kompare(l, r, by = "id")$diffs$dbl), 1)
+})
+
+test_that("integer matrices are rounded", {
+  l <- tibble::tibble(id = 1:2, x = matrix(c(12L, 13L, 3L, 4L), 2))
+  r <- tibble::tibble(id = 1:2, x = matrix(c(13L, 16L, 3L, 4L), 2))
+
+  flagged <- kompare(l, r, by = "id", digits = -1)$diffs[["int[,2]"]]
+
+  expect_equal(flagged$id, 2)
+  expect_equal(
+    nrow(kompare(l, r, by = "id", digits = NULL)$diffs[["int[,2]"]]),
+    2
+  )
+})
+
+test_that("floating point matrices use numeric tolerance", {
+  l <- tibble::tibble(id = 1:2, x = matrix(c(1, 2, 3, 4), 2))
+  r <- l |> mutate(x = x + 1e-6)
+
+  expect_length(kompare(l, r, by = "id")$diffs, 0)
+  expect_equal(nrow(kompare(l, r, by = "id", digits = 8)$diffs[["dbl[,2]"]]), 2)
+  expect_equal(
+    nrow(kompare(l, r, by = "id", digits = NULL)$diffs[["dbl[,2]"]]),
+    2
+  )
+})
+
+test_that("floating point arrays use numeric tolerance", {
+  a <- array(as.double(1:8), c(2, 2, 2))
+  l <- tibble::tibble(id = 1:2, x = a)
+  r <- l |> mutate(x = x + 1e-6)
+
+  expect_length(kompare(l, r, by = "id")$diffs, 0)
+})
+
+test_that("floating point matrices warn on coarse resolution", {
+  l <- tibble::tibble(id = 1, x = matrix(1e16))
+  r <- tibble::tibble(id = 1, x = matrix(1e16 + 2))
+
+  expect_warning(
+    out <- kompare(l, r, by = "id"),
+    "floating point representation is less accurate"
+  )
+  expect_equal(nrow(out$diffs[["dbl[,1]"]]), 1)
 })
 
 test_that("representable differences are reported", {
