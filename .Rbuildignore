@@ -7,3 +7,4 @@
 ^komparedf_.*\.tar\.gz$
 ^komparedf\.Rcheck$
 ^cran-comments\.md$
+^CRAN-SUBMISSION$
