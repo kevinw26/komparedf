@@ -3,21 +3,22 @@
 #' Suggests shared columns that uniquely identify rows in both `l` and `r`.
 #'
 #' @param l,r Data frames.
-#' @param by Character vector of shared column names; extended, not replaced.
-#'   `join_by()` objects and key renaming are rejected.
+#' @param by Character vector of shared column names; kept unchanged if already
+#'   unique, otherwise used as the starting point for the search. `join_by()`
+#'   objects and key renaming are rejected.
 #' @param max_add Maximum number of columns to add to `by`; a single
 #'   non-negative integer.
 #' @param max_candidates Maximum number of candidate columns to consider; a
 #'   single non-negative integer.
 #'
-#' @return An unnamed character vector naming one key: a unique single column
-#'   if available, otherwise a composite extending `by`, not necessarily the
+#' @return An unnamed character vector naming one key: a unique single column if
+#'   available, otherwise a composite extending `by`, not necessarily the
 #'   shortest.
 #'
 #' @details
 #' Names are matched case-insensitively, and returned names are lower case.
-#' Candidates are shared, atomic, type-compatible, non-constant columns,
-#' limited to `max_candidates` with the highest weaker-side cardinality. A single column
+#' Candidates are shared, atomic, type-compatible, non-constant columns, limited
+#' to `max_candidates` with the highest weaker-side cardinality. A single column
 #' is returned if possible; otherwise a key is grown greedily from `by`. The
 #' search is not exhaustive.
 #'
@@ -44,6 +45,16 @@ suggest_kompare_keys <- \(l, r, by = character(), max_add = 5, max_candidates = 
   max_add <- check_int(max_add, "max_add", min = 0, cap = TRUE)
   max_candidates <- check_int(max_candidates, "max_candidates", min = 0, cap = TRUE)
 
+  keys_uniquely_identify <- \(k_vector) {
+    length(k_vector) > 0 &&
+      vec_unique_count(l |> select(all_of(k_vector))) == nrow(l) &&
+      vec_unique_count(r |> select(all_of(k_vector))) == nrow(r)
+  }
+
+  # keep an already-unique by rather than replacing it with another column
+  if (keys_uniquely_identify(by)) return(by)
+
+  # get candidates and filter down
   candidates <- intersect(names(l), names(r)) |>
     setdiff(by) |>
     setdiff(c("col", ".l", ".r")) |>
@@ -60,12 +71,6 @@ suggest_kompare_keys <- \(l, r, by = character(), max_add = 5, max_candidates = 
     mutate(score = pmin(n_l, n_r)) |>
     slice_max(score, n = max_candidates, with_ties = FALSE) |>
     pull(col)
-
-  keys_uniquely_identify <- \(k_vector) {
-    length(k_vector) > 0 &&
-      vec_unique_count(l |> select(all_of(k_vector))) == nrow(l) &&
-      vec_unique_count(r |> select(all_of(k_vector))) == nrow(r)
-  }
 
   try_best_candidate <- \(k_vector) {
     if (length(k_vector) >= length(by) + max_add) return(k_vector)
@@ -99,9 +104,7 @@ suggest_kompare_keys <- \(l, r, by = character(), max_add = 5, max_candidates = 
   ))
 }
 
-# return NULL when the search errors or takes more than 3 seconds
+# return NULL if the search errors
 try_suggest_kompare_keys <- \(l, r, by, ...) {
-  setTimeLimit(elapsed = 3, transient = TRUE)
-  on.exit(setTimeLimit(elapsed = Inf, transient = FALSE))
   try_fetch(suggest_kompare_keys(l, r, by, ...), error = \(cnd) NULL)
 }

@@ -130,6 +130,12 @@ test_that("suggestion never returns reserved result columns", {
   )
 })
 
+test_that("a unique by is not replaced by another single key", {
+  d <- tibble::tibble(id = 1:2, grp = c("a", "b"))
+
+  expect_equal(suggest_kompare_keys(d, d, by = "id"), "id")
+})
+
 test_that("suggestion caps unbounded search limits", {
   d <- tibble::tibble(id = 1:2)
 

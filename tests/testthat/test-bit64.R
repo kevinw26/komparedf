@@ -11,6 +11,18 @@ test_that("integer64 columns are rounded like round()", {
   expect_equal(flagged$id, 2)
 })
 
+test_that("integer64 rounding overflow is an error, not a match", {
+  skip_if_not_installed("bit64")
+
+  l <- tibble::tibble(id = 1, x = bit64::as.integer64(0))
+  r <- tibble::tibble(id = 1, x = bit64::as.integer64("6000000000000000000"))
+
+  expect_error(
+    kompare(l, r, by = "id", digits = -19),
+    "too coarse"
+  )
+})
+
 test_that("kompare compares integer64 columns exactly", {
   skip_if_not_installed("bit64")
 

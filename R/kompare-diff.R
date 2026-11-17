@@ -35,15 +35,27 @@ numeric_ulp <- \(v) {
 
 # rounding for integers and tolerance for doubles; helpers preserve dimensions
 numeric_differs <- \(x, y, digits, col) {
-  if (vec_ptype_abbr(strip_dims(x)) != "dbl") {
+  abbr <- vec_ptype_abbr(strip_dims(x))
+  if (abbr != "dbl") {
     if (is.null(digits)) return(neq(x, y))
+    if (abbr == "int64") {
+      round_int64 <- \(v) try_fetch(
+        round(v, digits),
+        warning = \(cnd) abort(
+          glue("rounding to {digits} digits is too coarse for int64 col {col}"),
+          parent = cnd
+        )
+      )
+      return(neq(round_int64(x), round_int64(y)))
+    }
     return(neq(x |> round(digits), y |> round(digits)))
   }
   if (is.null(digits)) return(neq(x, y))
   tol <- 10^-digits / 2
+  ex <- neq(x, y)  # exact equality, treating NaN as NA
 
-  # warn when the data's resolution is coarser than the tolerance
-  vals <- c(x, y) |> keep(is.finite)
+  # warn when a differing value's resolution is coarser than the tolerance
+  vals <- c(x[ex], y[ex]) |> keep(is.finite)
   v <- vals[vals |> abs() |> which.max()]
   if (length(v) > 0 && numeric_ulp(v) > tol) {
     warn(glue(
@@ -51,7 +63,6 @@ numeric_differs <- \(x, y, digits, col) {
       "accurate than requested tolerance {format(tol, scientific = TRUE)}"))
   }
 
-  ex <- neq(x, y)  # exact equality, treating NaN as NA
   rg <- abs(x - y)  # raw gap at the tolerance scale
   ex & (is.na(rg) | rg > tol)  # inclusive at half a unit
 }

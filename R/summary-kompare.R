@@ -183,6 +183,7 @@ f_num <- \(x) {
 #'
 #' @export
 summary.kompare <- \(object, n = 5, ...) {
+  check_dots_empty()
   object |> format(n = n) |> writeLines()
   invisible(object)
 }
@@ -190,6 +191,7 @@ summary.kompare <- \(object, n = 5, ...) {
 #' @rdname summary.kompare
 #' @export
 print.kompare <- \(x, n = 5, ...) {
+  check_dots_empty()
   summary(x, n = n)
   invisible(x)
 }
@@ -197,6 +199,7 @@ print.kompare <- \(x, n = 5, ...) {
 #' @rdname summary.kompare
 #' @export
 format.kompare <- \(x, n = 5, ...) {
+  check_dots_empty()
   .format_kompare(x, n)
 }
 
@@ -216,6 +219,7 @@ format.kompare <- \(x, n = 5, ...) {
 #'
 #' @export
 tidy.kompare <- \(x, ...) {
+  check_dots_empty()
   n <- attr(x, "compared")[["rows"]] |> as.integer()
   if ((x$diffs |> map_int(nrow) |> sum()) == 0) {
     return(tibble(type = character(), col = character(), diffs = integer(), n = integer()))
@@ -237,4 +241,7 @@ tidy.kompare <- \(x, ...) {
 #' @return `TRUE` if nothing differs.
 #'
 #' @export
-as.logical.kompare <- \(x, ...) .n_diffs(x) == 0
+as.logical.kompare <- \(x, ...) {
+  check_dots_empty()
+  .n_diffs(x) == 0
+}

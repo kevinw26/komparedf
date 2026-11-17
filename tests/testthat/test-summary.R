@@ -108,6 +108,16 @@ test_that("print requires a positive integer n", {
   expect_no_error(capture.output(print(out, n = 2)))
 })
 
+test_that("methods reject unused dots", {
+  out <- kompare(tibble::tibble(id = 1), tibble::tibble(id = 1), by = "id")
+
+  expect_error(print(out, foo = 1), "must be empty")
+  expect_error(summary(out, foo = 1), "must be empty")
+  expect_error(format(out, foo = 1), "must be empty")
+  expect_error(generics::tidy(out, foo = 1), "must be empty")
+  expect_error(as.logical(out, foo = 1), "must be empty")
+})
+
 test_that("print caps unbounded n", {
   out <- kompare(tibble::tibble(id = 1), tibble::tibble(id = 1), by = "id")
 

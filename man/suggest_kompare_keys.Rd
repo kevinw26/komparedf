@@ -9,8 +9,9 @@ suggest_kompare_keys(l, r, by = character(), max_add = 5, max_candidates = 20)
 \arguments{
 \item{l, r}{Data frames.}
 
-\item{by}{Character vector of shared column names; extended, not replaced.
-\code{join_by()} objects and key renaming are rejected.}
+\item{by}{Character vector of shared column names; kept unchanged if already
+unique, otherwise used as the starting point for the search. \code{join_by()}
+objects and key renaming are rejected.}
 
 \item{max_add}{Maximum number of columns to add to \code{by}; a single
 non-negative integer.}
@@ -19,8 +20,8 @@ non-negative integer.}
 single non-negative integer.}
 }
 \value{
-An unnamed character vector naming one key: a unique single column
-if available, otherwise a composite extending \code{by}, not necessarily the
+An unnamed character vector naming one key: a unique single column if
+available, otherwise a composite extending \code{by}, not necessarily the
 shortest.
 }
 \description{
@@ -28,8 +29,8 @@ Suggests shared columns that uniquely identify rows in both \code{l} and \code{r
 }
 \details{
 Names are matched case-insensitively, and returned names are lower case.
-Candidates are shared, atomic, type-compatible, non-constant columns,
-limited to \code{max_candidates} with the highest weaker-side cardinality. A single column
+Candidates are shared, atomic, type-compatible, non-constant columns, limited
+to \code{max_candidates} with the highest weaker-side cardinality. A single column
 is returned if possible; otherwise a key is grown greedily from \code{by}. The
 search is not exhaustive.
 }

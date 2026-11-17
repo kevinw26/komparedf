@@ -36,54 +36,56 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' Reports schema, key, and value differences between `l` and `r`.
 #'
 #' @param l,r Data frames to compare.
-#' @param by How to match rows: a [dplyr::join_by()] object, a character
-#'   vector of shared column names, or a named vector (`c(l = "r")`). `NULL`
-#'   (default) compares rows by position.
+#' @param by How to match rows: a [dplyr::join_by()] object, a character vector
+#'   of shared column names, or a named vector (`c(l = "r")`). `NULL` (default)
+#'   compares rows by position.
 #' @param digits Decimal places for numeric tolerance, between -22 and 22.
 #'   Default `4`. `NULL` compares exactly, without tolerance. If digits
 #'   requested require precision greater than available, a warning is emitted.
 #'   Integer and integer64 columns, including matrix and array columns, are
 #'   rounded to `digits` places before comparing.
 #' @param strings `"strict"` (default) or a `_`-joined combination of
-#'   `"ignorecase"` and `"trim"`, in any order (e.g. `"ignorecase_trim"`).
-#'   Also applies when factors are compared as strings.
+#'   `"ignorecase"` and `"trim"`, in any order (e.g. `"ignorecase_trim"`). Also
+#'   applies when factors are compared as strings. Applies to value
+#'   columns only; `by` columns are matched exactly.
 #' @param factors `"as_strings"` (default) or `"as_factors"` (compared as
 #'   factors; columns whose levels differ in set or order land in `schema`).
 #' @param raise_error Abort with the printed summary on differences. Default
 #'   `FALSE`.
 #' @param fn Applied to both frames before comparing; its output is ungrouped.
-#'   Default `\(d) d`.
+#'   When `by` renames columns, `r`'s key columns are renamed to `l`'s names
+#'   before `fn` is applied. Default `\(d) d`.
 #' @param ... Not used; must be empty.
-#' @param keys,round,roundDigits Aliases for `by` and `digits`; supply at
-#'   most one of each pair.
+#' @param keys,round,roundDigits Aliases for `by` and `digits`; supply at most
+#'   one of each pair.
 #'
-#' @return A `kompare` list: `schema` (columns missing on one side or
-#'   retyped), `keys` (rows with no match), and `diffs` (differing rows, by
-#'   type). Prints as a summary and coerces to logical with [as.logical()].
+#' @return A `kompare` list: `schema` (columns missing on one side or retyped),
+#'   `keys` (rows with no match), and `diffs` (differing rows, by type). Prints
+#'   as a summary and coerces to logical with [as.logical()].
 #'
 #' @details
 #' Names are matched case-insensitively via lowercasing; frames with columns
-#' that clash after lowercasing trigger an error. Only columns sharing name
-#' and type are compared for values. With `factors = "as_factors"`, factor
-#' levels are treated as metadata and differing levels land in `schema`.
-#' Identically named `Date` and `POSIXct` columns at midnight on both sides
-#' become `Date` to avoid false differences between date-like and time-like
-#' storage. `by` columns must be unique on each side. `NA` values in `by`
-#' columns match one another so that rows with missing keys are paired rather
-#' than reported as unmatched. `NaN` values compare equal and `Inf` compares
-#' normally. The optional function `fn` is applied before values are compared; it
-#' must keep any columns named in `by` and leave their types compatible, though
-#' it may change them to a common type. Numeric differences are tolerated up to
-#' half a unit in the `digits` decimal place, compared against the stored gap.
-#' `dbl` columns warn when their resolution is coarser than that tolerance;
-#' integer and integer64 columns are rounded to `digits` places before
-#' comparing. The same rounding and tolerance apply to integer and double
+#' that clash after lowercasing trigger an error. Only columns sharing name and
+#' type are compared for values. With `factors = "as_factors"`, factor levels
+#' are treated as metadata and differing levels land in `schema`. Identically
+#' named `Date` and `POSIXct` columns at midnight on both sides become `Date`
+#' when their time zones agree (a `Date` side is treated as zone-agnostic). `by`
+#' columns must be unique on each side. `NA` values in `by` columns match one
+#' another so that rows with missing keys are paired rather than reported as
+#' unmatched. `NaN` values compare equal and `Inf` compares normally. The
+#' optional function `fn` is applied before values are compared; it must keep
+#' any columns named in `by` and leave their types compatible, though it may
+#' change them to a common type. Numeric differences are tolerated up to half a
+#' unit in the `digits` decimal place, compared against the stored gap. `dbl`
+#' columns warn when a differing value's resolution is coarser than that
+#' tolerance; integer and integer64 columns are rounded to `digits` places
+#' before comparing. The same rounding and tolerance apply to integer and double
 #' matrix and array columns. `print()` also reports matched rows and compared
 #' columns.
 #'
 #' @section Error conditions:
-#' `raise_error = TRUE` gives `kompare_error` with `body` and `obj`. `kompare_dupes_error` 
-#' may suggest unique comparison key if quickly found.
+#' `raise_error = TRUE` gives `kompare_error` with `body` and `obj`.
+#' `kompare_dupes_error` may suggest unique comparison key if quickly found.
 #'
 #' @examples
 #' l <- tibble::tibble(id = 1:3, x = c(1, 2, 3))
@@ -99,7 +101,7 @@ check_cells <- \(l, r, cols, limit = 10e6) {
 #' @importFrom tibble as_tibble as_tibble_col tibble
 #' @importFrom stats na.omit
 #' @importFrom utils globalVariables
-#' @importFrom lubridate as_date hour minute second
+#' @importFrom lubridate as_date floor_date is.Date is.instant tz
 #' @importFrom vctrs vec_equal vec_in vec_ptype vec_ptype_abbr vec_ptype_common vec_slice vec_unique_count
 #'
 #' @export
@@ -128,6 +130,7 @@ kompare <- \(
 
   factors <- arg_match(factors, c("as_strings", "as_factors"))
 
+  strings <- str_to_lower(strings)
   sf <- if (!identical(strings, "strict")) {
     str_split_1(strings, "_") |> str_to_lower()
   } else character()
@@ -211,15 +214,16 @@ kompare <- \(
   }
 
   # identically named columns holding only midnight datetimes become dates
-  date_cols <- \(d) d |>
-    select(where(\(x) {
-      inherits_any(x, c("Date", "POSIXt")) &&
-        !all(is.na(x)) &&
-        all(hour(x) == 0 & minute(x) == 0 & second(x) == 0, na.rm = TRUE)
-    })) |>
-    names()
+  is_date_pair <- \(x, y) {
+    is.instant(x) && is.instant(y) &&
+      any(!is.na(x)) && any(!is.na(y)) &&
+      all(x == floor_date(x, "day"), na.rm = TRUE) &&
+      all(y == floor_date(y, "day"), na.rm = TRUE) &&
+      (is.Date(x) || is.Date(y) || identical(tz(x), tz(y)))
+  }
 
-  cols_to_date <- date_cols(l) |> intersect(date_cols(r))
+  cols_to_date <- intersect(names(l), names(r)) |>
+    keep(\(col) is_date_pair(l[[col]], r[[col]]))
   if (length(cols_to_date) > 0) {
     inform(glue(
       "columns {str_c(cols_to_date, collapse = ', ')} have no time component and were converted ",
@@ -354,8 +358,9 @@ kompare <- \(
           raw <- neq(x, y)
         }
 
-        # test for being scalar; if matrix, do rowSums
-        if (is.null(dim(raw))) raw else rowSums(raw, dims = 1) > 0
+        # test for being scalar; collapse matrix and array cells
+        if (length(dim(raw)) < 2) return(as.vector(raw))
+        rowSums(raw, dims = 1) > 0
       }
 
       mask <- cols |>

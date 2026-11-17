@@ -17,6 +17,15 @@ test_that("strings = 'strict' compares exactly", {
   expect_length(kompare(l, r, by = "id", strings = "trim_ignorecase")$diffs, 0)
 })
 
+test_that("strings is stored lower-cased", {
+  l <- tibble::tibble(id = 1, x = "a")
+
+  out <- kompare(l, l, by = "id", strings = "TRIM")
+
+  expect_equal(attr(out, "settings")$strings, "trim")
+  expect_true(as.logical(kompare(l, l, by = "id", strings = "STRICT")))
+})
+
 test_that("fn is applied to both sides before comparing", {
   l <- tibble::tibble(id = 1:3, x = c(3, 1, 2))
   r <- tibble::tibble(id = 3:1, x = c(2, 1, 3))

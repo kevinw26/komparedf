@@ -22,9 +22,9 @@ kompare(
 \arguments{
 \item{l, r}{Data frames to compare.}
 
-\item{by}{How to match rows: a \code{\link[dplyr:join_by]{dplyr::join_by()}} object, a character
-vector of shared column names, or a named vector (\code{c(l = "r")}). \code{NULL}
-(default) compares rows by position.}
+\item{by}{How to match rows: a \code{\link[dplyr:join_by]{dplyr::join_by()}} object, a character vector
+of shared column names, or a named vector (\code{c(l = "r")}). \code{NULL} (default)
+compares rows by position.}
 
 \item{digits}{Decimal places for numeric tolerance, between -22 and 22.
 Default \code{4}. \code{NULL} compares exactly, without tolerance. If digits
@@ -33,8 +33,9 @@ Integer and integer64 columns, including matrix and array columns, are
 rounded to \code{digits} places before comparing.}
 
 \item{strings}{\code{"strict"} (default) or a \verb{_}-joined combination of
-\code{"ignorecase"} and \code{"trim"}, in any order (e.g. \code{"ignorecase_trim"}).
-Also applies when factors are compared as strings.}
+\code{"ignorecase"} and \code{"trim"}, in any order (e.g. \code{"ignorecase_trim"}). Also
+applies when factors are compared as strings. Applies to value
+columns only; \code{by} columns are matched exactly.}
 
 \item{factors}{\code{"as_strings"} (default) or \code{"as_factors"} (compared as
 factors; columns whose levels differ in set or order land in \code{schema}).}
@@ -43,45 +44,46 @@ factors; columns whose levels differ in set or order land in \code{schema}).}
 \code{FALSE}.}
 
 \item{fn}{Applied to both frames before comparing; its output is ungrouped.
-Default \verb{\\(d) d}.}
+When \code{by} renames columns, \code{r}'s key columns are renamed to \code{l}'s names
+before \code{fn} is applied. Default \verb{\\(d) d}.}
 
 \item{...}{Not used; must be empty.}
 
-\item{keys, round, roundDigits}{Aliases for \code{by} and \code{digits}; supply at
-most one of each pair.}
+\item{keys, round, roundDigits}{Aliases for \code{by} and \code{digits}; supply at most
+one of each pair.}
 }
 \value{
-A \code{kompare} list: \code{schema} (columns missing on one side or
-retyped), \code{keys} (rows with no match), and \code{diffs} (differing rows, by
-type). Prints as a summary and coerces to logical with \code{\link[=as.logical]{as.logical()}}.
+A \code{kompare} list: \code{schema} (columns missing on one side or retyped),
+\code{keys} (rows with no match), and \code{diffs} (differing rows, by type). Prints
+as a summary and coerces to logical with \code{\link[=as.logical]{as.logical()}}.
 }
 \description{
 Reports schema, key, and value differences between \code{l} and \code{r}.
 }
 \details{
 Names are matched case-insensitively via lowercasing; frames with columns
-that clash after lowercasing trigger an error. Only columns sharing name
-and type are compared for values. With \code{factors = "as_factors"}, factor
-levels are treated as metadata and differing levels land in \code{schema}.
-Identically named \code{Date} and \code{POSIXct} columns at midnight on both sides
-become \code{Date} to avoid false differences between date-like and time-like
-storage. \code{by} columns must be unique on each side. \code{NA} values in \code{by}
-columns match one another so that rows with missing keys are paired rather
-than reported as unmatched. \code{NaN} values compare equal and \code{Inf} compares
-normally. The optional function \code{fn} is applied before values are compared; it
-must keep any columns named in \code{by} and leave their types compatible, though
-it may change them to a common type. Numeric differences are tolerated up to
-half a unit in the \code{digits} decimal place, compared against the stored gap.
-\code{dbl} columns warn when their resolution is coarser than that tolerance;
-integer and integer64 columns are rounded to \code{digits} places before
-comparing. The same rounding and tolerance apply to integer and double
+that clash after lowercasing trigger an error. Only columns sharing name and
+type are compared for values. With \code{factors = "as_factors"}, factor levels
+are treated as metadata and differing levels land in \code{schema}. Identically
+named \code{Date} and \code{POSIXct} columns at midnight on both sides become \code{Date}
+when their time zones agree (a \code{Date} side is treated as zone-agnostic). \code{by}
+columns must be unique on each side. \code{NA} values in \code{by} columns match one
+another so that rows with missing keys are paired rather than reported as
+unmatched. \code{NaN} values compare equal and \code{Inf} compares normally. The
+optional function \code{fn} is applied before values are compared; it must keep
+any columns named in \code{by} and leave their types compatible, though it may
+change them to a common type. Numeric differences are tolerated up to half a
+unit in the \code{digits} decimal place, compared against the stored gap. \code{dbl}
+columns warn when a differing value's resolution is coarser than that
+tolerance; integer and integer64 columns are rounded to \code{digits} places
+before comparing. The same rounding and tolerance apply to integer and double
 matrix and array columns. \code{print()} also reports matched rows and compared
 columns.
 }
 \section{Error conditions}{
 
-\code{raise_error = TRUE} gives \code{kompare_error} with \code{body} and \code{obj}. \code{kompare_dupes_error}
-may suggest unique comparison key if quickly found.
+\code{raise_error = TRUE} gives \code{kompare_error} with \code{body} and \code{obj}.
+\code{kompare_dupes_error} may suggest unique comparison key if quickly found.
 }
 
 \examples{

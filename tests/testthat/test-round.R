@@ -155,6 +155,13 @@ test_that("floating point matrices warn on coarse resolution", {
   expect_equal(nrow(out$diffs[["dbl[,1]"]]), 1)
 })
 
+test_that("resolution warnings only consider differing values", {
+  l <- tibble::tibble(id = 1:2, x = c(1e16, 1.0))
+  r <- tibble::tibble(id = 1:2, x = c(1e16, 1.00001))
+
+  expect_no_warning(kompare(l, r, by = "id", digits = 4))
+})
+
 test_that("representable differences are reported", {
   # ulp at 1e16 is 2, far above tol = 5e-5; warn because the requested
   # precision is below the data's resolution; the one-ulp gap is exactly
